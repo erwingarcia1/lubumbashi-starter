@@ -39,7 +39,7 @@ l'écran d'accueil ». Autoriser la caméra et la position quand Chrome le deman
 3. **Carte** : points colorés sur Kampemba, clic → fiche.
 4. **Contribuables** : recherche par nom, téléphone ou identifiant ; fiche avec obligations, paiements, journal ; `ilunga.m@` (Superviseur) corrige un contact ou une catégorie avec motif.
 5. **Taxes & barèmes** : `ngoy.k@` (Finances) propose un nouveau montant à une date future → version « Brouillon » ; ne peut pas l'approuver elle-même ; `admin@` l'approuve → « À venir ». Les obligations déjà émises ne changent pas.
-6. **Agents** : taux d'échec, recensements hors zone ; `admin@` révoque un appareil avec motif → l'agent est déconnecté au prochain écran.
+6. **Agents** : `ilunga.m@` (Superviseur) ou `admin@` crée un agent (« Nouvel agent » : nom, quartier, PIN à 6 chiffres) → le matricule `AG-KAM-0xx` est attribué ; l'agent se connecte avec ce matricule et ce PIN sur le terminal ; « Changer le PIN » remplace l'ancien code. Taux d'échec, recensements hors zone ; `admin@` révoque un appareil avec motif → l'agent est déconnecté au prochain écran.
 7. **Rapprochement** : `ngoy.k@` → journée du jour → « Lancer le rapprochement » → trois types d'écart par canal (absent du relevé, doublon, hors plateforme) → Re-interroger / Demander l'annulation / Rattacher à un contribuable → « Clôturer la journée » → historique.
 8. **Journal d'audit** : `auditeur@` retrouve chaque action ci-dessus (qui, quoi, quand, où, appareil) ; filtre par action ; export CSV.
 9. **Rapports** : rapport mensuel (PDF et Excel), état des impayés, performance des agents, rapprochement du jour, liste des reçus.

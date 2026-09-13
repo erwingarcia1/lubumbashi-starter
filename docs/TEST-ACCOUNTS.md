@@ -24,6 +24,9 @@ Jamais utilisés en production : le seed refuse de s'exécuter quand `APP_ENV=pr
 | --- | --- | --- |
 | AG-KAM-007 | `123456` | Kampemba · Bel-Air (tournée Av. Kasaï) |
 
+D'autres agents se créent dans le tableau de bord (Agents → « Nouvel agent », rôle Superviseur ou
+Administrateur) : le matricule est attribué automatiquement et le PIN est choisi par la Mairie.
+
 ## Portail contribuable — pas de mot de passe
 
 Le lien reçu par SMS est l'accès. `pnpm db:seed` imprime un lien stable par contribuable de test ;

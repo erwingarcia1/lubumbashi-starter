@@ -1,10 +1,13 @@
+import { z } from "zod";
+import { hash } from "@node-rs/argon2";
 import { eq, sql } from "drizzle-orm";
 
-import type { Db } from "@/lib/db/client";
-import { devices } from "@/lib/db/schema";
+import { writeAudit } from "@/lib/audit/write";
+import type { Db, Tx } from "@/lib/db/client";
+import { agents, devices, zones } from "@/lib/db/schema";
 import type { AdminSession } from "@/lib/identity/session";
 
-import type { RequestContext } from "./context";
+import { actorOf, deviceOf, whereOf, type RequestContext } from "./context";
 import { AdminError } from "./errors";
 
 export const OUT_OF_ZONE_M = 2000;
@@ -133,4 +136,133 @@ export async function revokeDevice(
       values ('admin', ${session.adminId}, ${session.role}, ${session.email}, 'device.revoked', 'device', ${d.deviceCode},
               ${JSON.stringify({ agentId: d.agentId, deviceId: d.id })}::jsonb, ${reason}, ${ctx.ip ?? null}::inet, ${ctx.userAgent ?? null})`);
   });
+}
+
+// --- Agent accounts (created by the Mairie, never self-registered) -----------------------------
+
+const PIN = z.string().regex(/^\d{6}$/, "PIN must be 6 digits");
+
+export const createAgentInput = z.object({
+  fullName: z.string().trim().min(3).max(120),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+[1-9]\d{6,14}$/)
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+  /** Quartier (zone of the agent); its commune is derived from the zone tree. */
+  quartierId: z.uuid(),
+  pin: PIN,
+});
+export type CreateAgentInput = z.infer<typeof createAgentInput>;
+
+/** Administrateur and Superviseur manage agent accounts (docs/ROLES.md). */
+export function canManageAgents(role: AdminSession["role"]): boolean {
+  return role === "administrateur" || role === "superviseur";
+}
+
+/** Communes with their quartiers, for the agent form. */
+export async function zonesForAgents(db: Db) {
+  const rows = await db
+    .select({
+      id: zones.id,
+      level: zones.level,
+      code: zones.code,
+      name: zones.name,
+      parentId: zones.parentId,
+    })
+    .from(zones)
+    .orderBy(zones.level, zones.name);
+  const communes = rows.filter((z) => z.level === "commune");
+  return communes.map((c) => ({
+    id: c.id,
+    code: c.code,
+    name: c.name,
+    quartiers: rows
+      .filter((q) => q.level === "quartier" && q.parentId === c.id)
+      .map((q) => ({ id: q.id, code: q.code, name: q.name })),
+  }));
+}
+
+/** Next `AG-<COMMUNE3>-NNN` for a commune (gap-free after the highest existing number). */
+async function nextMatricule(tx: Tx, communeCode: string): Promise<string> {
+  const prefix = `AG-${communeCode}-`;
+  const [row] = await tx
+    .execute<{ last: string | null }>(
+      sql`
+    select max(substr(matricule, ${prefix.length + 1}::int)::int)::text as last
+    from app.agents where matricule like ${`${prefix}%`} and substr(matricule, ${prefix.length + 1}::int) ~ '^[0-9]+$'
+  `,
+    )
+    .then((r) => r.rows);
+  const n = (row?.last ? Number(row.last) : 0) + 1;
+  return `${prefix}${String(n).padStart(3, "0")}`;
+}
+
+export async function createAgent(
+  db: Db,
+  session: AdminSession,
+  raw: CreateAgentInput,
+  ctx: RequestContext = {},
+): Promise<{ id: string; matricule: string }> {
+  if (!canManageAgents(session.role)) throw new AdminError("forbidden");
+  const input = createAgentInput.parse(raw);
+  const [quartier] = await db.select().from(zones).where(eq(zones.id, input.quartierId));
+  if (!quartier || quartier.level !== "quartier" || !quartier.parentId)
+    throw new AdminError("invalid_input", "quartier required");
+  const [commune] = await db.select().from(zones).where(eq(zones.id, quartier.parentId));
+  if (!commune) throw new AdminError("invalid_state", "quartier without commune");
+  const pinHash = await hash(input.pin);
+  return db.transaction(async (tx) => {
+    const matricule = await nextMatricule(tx, commune.code);
+    const [created] = await tx
+      .insert(agents)
+      .values({
+        matricule,
+        fullName: input.fullName,
+        phone: input.phone ?? null,
+        pinHash,
+        zoneId: quartier.id,
+        communeId: commune.id,
+      })
+      .returning({ id: agents.id, matricule: agents.matricule });
+    await writeAudit(tx, {
+      actor: actorOf(session),
+      action: "agent.created",
+      object: { type: "agent", id: created!.matricule },
+      details: { fullName: input.fullName, zone: quartier.code, commune: commune.code },
+      where: whereOf(ctx),
+      device: deviceOf(ctx),
+    });
+    return created!;
+  });
+}
+
+/** A new PIN chosen by the Mairie (the old one stops working at once; lockout counters reset). */
+export async function resetAgentPin(
+  db: Db,
+  session: AdminSession,
+  input: { agentId: string; pin: string },
+  ctx: RequestContext = {},
+): Promise<{ matricule: string }> {
+  if (!canManageAgents(session.role)) throw new AdminError("forbidden");
+  const pin = PIN.parse(input.pin);
+  const [agent] = await db.select().from(agents).where(eq(agents.id, input.agentId));
+  if (!agent) throw new AdminError("not_found", input.agentId);
+  const pinHash = await hash(pin);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(agents)
+      .set({ pinHash, failedPinAttempts: 0, lockedUntil: null, updatedAt: new Date() })
+      .where(eq(agents.id, agent.id));
+    await writeAudit(tx, {
+      actor: actorOf(session),
+      action: "agent.pin_reset",
+      object: { type: "agent", id: agent.matricule },
+      details: {},
+      where: whereOf(ctx),
+      device: deviceOf(ctx),
+    });
+  });
+  return { matricule: agent.matricule };
 }

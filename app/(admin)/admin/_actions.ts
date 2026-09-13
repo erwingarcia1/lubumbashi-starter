@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ZodError } from "zod";
 
-import { revokeDevice } from "@/lib/admin/agents";
+import { createAgent, resetAgentPin, revokeDevice } from "@/lib/admin/agents";
 import { AdminError, type AdminErrorCode } from "@/lib/admin/errors";
 import { approveRuleVersion, proposeRuleVersion } from "@/lib/admin/taxes";
 import { changeEntityCategory, updateTaxpayerContact } from "@/lib/admin/taxpayers";
@@ -259,4 +259,51 @@ export async function closeDayAction(formData: FormData) {
   }
   revalidatePath("/admin/rapprochement");
   redirect(reconPath(day, error ? `error=${error}` : "ok=closed"));
+}
+
+// --- Agent accounts --------------------------------------------------------------------------
+
+export async function createAgentAction(formData: FormData) {
+  const session = await requireAdmin();
+  let error: AdminErrorCode | undefined;
+  let matricule = "";
+  try {
+    const created = await createAgent(
+      getDb(),
+      session,
+      {
+        fullName: str(formData, "fullName"),
+        phone: str(formData, "phone"),
+        quartierId: str(formData, "quartierId"),
+        pin: str(formData, "pin"),
+      },
+      await requestContext(),
+    );
+    matricule = created.matricule;
+  } catch (err) {
+    error = codeOf(err);
+  }
+  revalidatePath("/admin/agents");
+  redirect(
+    (error
+      ? `/admin/agents?error=${error}`
+      : `/admin/agents?ok=created&matricule=${encodeURIComponent(matricule)}`) as Route,
+  );
+}
+
+export async function resetAgentPinAction(formData: FormData) {
+  const session = await requireAdmin();
+  let error: AdminErrorCode | undefined;
+  try {
+    await resetAgentPin(
+      getDb(),
+      session,
+      { agentId: str(formData, "agentId"), pin: str(formData, "pin") },
+      await requestContext(),
+    );
+  } catch (err) {
+    error = codeOf(err);
+  }
+  revalidatePath("/admin/agents");
+  redirect(error ? `/admin/agents?error=${error}` : "/admin/agents?ok=pin");
 }
