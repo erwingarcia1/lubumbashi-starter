@@ -49,3 +49,8 @@ export function canEditTaxpayer(role: AdminRole): boolean {
 export function canReadRegistry(role: AdminRole): boolean {
   return ADMIN_ROLES.includes(role);
 }
+
+/** Runs the reconciliation, resolves exceptions and closes the day: Finances and Administrateur. */
+export function canReconcile(role: AdminRole): boolean {
+  return role === "finances" || role === "administrateur";
+}

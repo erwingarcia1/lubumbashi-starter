@@ -44,14 +44,14 @@ services:
       APP_ENV: ${APP_ENV:-demo}
     command: sh -c "pnpm db:migrate && ${SEED_ON_DEPLOY:+pnpm db:seed}"
 
-  # Outbox worker: sends queued SMS (M7). pg-boss (reconciliation, penalties) takes over in M9.
+  # pg-boss worker (M9): nightly reconciliation 23:30, penalty accrual 00:10, SMS sends every minute.
   worker:
     profiles: ["worker"]
     build:
       context: .
       target: ops
     env_file: .env.production
-    command: pnpm notify:worker
+    command: pnpm worker
     restart: unless-stopped
 
 volumes:

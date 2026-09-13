@@ -1,5 +1,9 @@
+import { mockStatementFromLedger } from "./mock-ledger";
 import type { PaymentChannel, PaymentProvider } from "./provider";
-import { mockProvider } from "./providers/mock";
+import { createMockProvider } from "./providers/mock";
+
+/** One mock for the process: its statements come from the platform's own ledger (M9). */
+const mock = createMockProvider(mockStatementFromLedger);
 
 export class PaymentConfigError extends Error {
   constructor(
@@ -42,7 +46,7 @@ export function getProvider(
   if (channel !== "mock" && enabled.includes(channel)) throw new PaymentConfigError("no_provider"); // real providers arrive with D11/D14
   if (!enabled.includes("mock")) throw new PaymentConfigError("channel_not_enabled");
   if (env.APP_ENV === "production") throw new PaymentConfigError("mock_disabled_in_production");
-  return mockProvider;
+  return mock;
 }
 
 export function paymentExpiryHours(env: NodeJS.ProcessEnv = process.env): number {

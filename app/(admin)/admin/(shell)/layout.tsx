@@ -20,8 +20,8 @@ const NAV: NavItem[] = [
   {
     key: "reconciliation",
     label: t.admin.nav.reconciliation,
-    href: "/admin/bientot/reconciliation",
-    live: false,
+    href: "/admin/rapprochement",
+    live: true,
   },
   { key: "taxes", label: t.admin.nav.taxes, href: "/admin/taxes", live: true },
   { key: "audit", label: t.admin.nav.audit, href: "/admin/bientot/audit", live: false },

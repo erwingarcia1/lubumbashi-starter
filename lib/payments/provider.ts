@@ -66,6 +66,9 @@ export interface PaymentProvider {
     amountFc: number;
     reason: string;
   }): Promise<ReverseResult>;
-  /** The provider's own statement for a business day (YYYY-MM-DD), for reconciliation (M9). */
-  fetchStatement(date: string): Promise<StatementLine[]>;
+  /**
+   * The provider's own statement for a business day (YYYY-MM-DD), for reconciliation (M9).
+   * `channel` tells a multi-channel provider (the mock stands in for every channel) which one.
+   */
+  fetchStatement(date: string, channel?: PaymentChannel): Promise<StatementLine[]>;
 }

@@ -12,6 +12,16 @@ import { approveRuleVersion, proposeRuleVersion } from "@/lib/admin/taxes";
 import { changeEntityCategory, updateTaxpayerContact } from "@/lib/admin/taxpayers";
 import { getDb } from "@/lib/db/client";
 import { requireAdmin } from "@/lib/identity/session";
+import { availableChannels } from "@/lib/payments/registry";
+import {
+  attachToTaxpayer,
+  closeDay,
+  confirmFromStatement,
+  requeryProvider,
+  requestReversal,
+  resolveManually,
+} from "@/lib/reconciliation/actions";
+import { reconcileDay } from "@/lib/reconciliation/run";
 import { createSupabaseServerClient } from "@/lib/identity/supabase";
 
 async function requestContext() {
@@ -162,4 +172,85 @@ export async function revokeDeviceAction(formData: FormData) {
   }
   revalidatePath("/admin/agents");
   redirect(error ? `/admin/agents?error=${error}` : "/admin/agents?ok=revoked");
+}
+
+// --- Rapprochement (M9) -------------------------------------------------------------------------
+
+/** A unique `t` makes every redirect a real navigation, so the page never shows a stale table. */
+function reconPath(day: string, query: string) {
+  return `/admin/rapprochement?day=${day}&${query}&t=${Date.now()}` as Route;
+}
+
+export async function runReconciliationAction(formData: FormData) {
+  const session = await requireAdmin();
+  const day = str(formData, "day");
+  let error: AdminErrorCode | undefined;
+  try {
+    if (!(session.role === "finances" || session.role === "administrateur"))
+      throw new AdminError("forbidden");
+    await reconcileDay(getDb(), day, availableChannels());
+  } catch (err) {
+    error = codeOf(err);
+  }
+  revalidatePath("/admin/rapprochement");
+  redirect(reconPath(day, error ? `error=${error}` : "ok=run"));
+}
+
+export async function reconciliationExceptionAction(formData: FormData) {
+  const session = await requireAdmin();
+  const day = str(formData, "day");
+  const exceptionId = str(formData, "exceptionId");
+  const action = str(formData, "action");
+  const ctx = await requestContext();
+  let error: AdminErrorCode | undefined;
+  let ok = action;
+  try {
+    const db = getDb();
+    if (action === "requery") {
+      const r = await requeryProvider(db, session, { exceptionId }, ctx);
+      ok = r.resolved ? "requery_resolved" : "requery_open";
+    } else if (action === "reversal") {
+      await requestReversal(db, session, { exceptionId, reason: str(formData, "reason") }, ctx);
+    } else if (action === "attach") {
+      await attachToTaxpayer(
+        db,
+        session,
+        { exceptionId, taxpayerNo: str(formData, "taxpayerNo").toUpperCase() },
+        ctx,
+      );
+    } else if (action === "confirm") {
+      await confirmFromStatement(db, session, { exceptionId }, ctx);
+    } else if (action === "resolve") {
+      await resolveManually(
+        db,
+        session,
+        { exceptionId, resolution: str(formData, "resolution") },
+        ctx,
+      );
+    } else {
+      throw new AdminError("invalid_input", action);
+    }
+  } catch (err) {
+    error = codeOf(err);
+  }
+  revalidatePath("/admin/rapprochement");
+  redirect(reconPath(day, error ? `error=${error}` : `ok=${ok}`));
+}
+
+export async function closeDayAction(formData: FormData) {
+  const session = await requireAdmin();
+  const day = str(formData, "day");
+  let error: AdminErrorCode | undefined;
+  try {
+    await closeDay(
+      getDb(),
+      session,
+      { businessDate: day, note: str(formData, "note") || undefined },
+      await requestContext(),
+    );
+  } catch (err) {
+    error = codeOf(err);
+  }
+  revalidatePath("/admin/rapprochement");
+  redirect(reconPath(day, error ? `error=${error}` : "ok=closed"));
 }

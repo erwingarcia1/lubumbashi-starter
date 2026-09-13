@@ -42,6 +42,26 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://$APP_DOMAIN/api/cro
 
 Liens portail : le SMS de bienvenue contient `https://<domaine>/t/<jeton>` (valable 30 jours, ouvre une session de 12 h). `pnpm db:seed` imprime un lien de démonstration stable par contribuable de test. Depuis l'autocollant de porte (`/q/<identifiant>`), « Recevoir mon lien par SMS » renvoie un nouveau lien au numéro enregistré (un par 10 minutes).
 
+## Tâches planifiées (rapprochement, pénalités, SMS)
+
+Un seul processus, `pnpm worker` (`scripts/worker.ts`, pg-boss, schéma `pgboss` créé par la migration 0009), planifie en heure de Lubumbashi :
+
+| Tâche | Heure | Ce qu'elle fait |
+| --- | --- | --- |
+| `reconcile-daily` | 23:30 | relevé de chaque canal pour la journée écoulée, rapprochement, écarts |
+| `penalties-daily` | 00:10 | inscrit les pénalités de retard calculées par le moteur sur les obligations ouvertes |
+| `notify-flush` | chaque minute | envoie les SMS en file |
+
+Sur la VM : `docker compose --profile worker up -d worker`. Sans worker, un cron externe peut appeler les mêmes traitements :
+
+```bash
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" "https://$APP_DOMAIN/api/cron/reconcile?day=2026-09-12"
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" "https://$APP_DOMAIN/api/cron/penalties"
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" "https://$APP_DOMAIN/api/cron/notifications"
+```
+
+La clôture de la journée se fait à la main par Finances dans Rapprochement, une fois tous les écarts traités.
+
 ## Espace disque du poste de développement
 
 Colima fait tourner Docker dans une VM dont le disque (20 Gio) est un fichier creux sur le Mac : si le Mac est plein, la VM subit des erreurs d'entrée/sortie et Supabase s'arrête. Garder au moins 10 Gio libres ; `docker builder prune -af` puis `colima ssh -- sudo fstrim -av` rendent l'espace au Mac.
