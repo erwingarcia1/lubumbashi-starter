@@ -13,6 +13,8 @@ export default defineConfig({
   schema: "./lib/db/schema/index.ts",
   out: "./drizzle/migrations",
   casing: "snake_case",
+  schemaFilter: ["app"],
+  extensionsFilters: ["postgis"],
   dbCredentials: { url },
   migrations: { table: "__drizzle_migrations", schema: "drizzle" },
   strict: true,

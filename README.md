@@ -29,7 +29,8 @@ pnpm install                                  # pnpm 12 stops on unreviewed buil
 colima start --cpu 4 --memory 6
 SUPABASE_USE_SLIM_IMAGES=true supabase start  # Postgres 54322, API 54321, Studio 54323, Mailpit 54324
 cp .env.example .env.local                    # paste the values printed by: supabase status -o env
-pnpm db:migrate
+pnpm db:migrate                               # migrations + creates the runtime role app_login (APP_DB_PASSWORD)
+pnpm db:seed                                  # prototype data (refuses production)
 pnpm exec playwright install chromium --only-shell
 pnpm dev                                      # http://localhost:3000
 ```
@@ -64,6 +65,12 @@ tests/unit      Vitest · tests/e2e   Playwright
 scripts/        seed.ts, later worker.ts (pg-boss)
 docs/           MILESTONES.md, DECISIONS.md, PROMPTS.md, prototype.html, original-project-plan.txt
 ```
+
+## Database roles
+
+- Migrations and role management use the owner connection (`DATABASE_URL_MIGRATIONS`).
+- The app connects as `app_login`, member of `app_rw`: full access to schema `app` except UPDATE/DELETE/TRUNCATE on `audit_log` and `provider_confirmations`, and DELETE on `receipts`; no DDL. Supabase's `anon`/`authenticated` roles have no access to schema `app`, and the REST API does not expose it.
+- On hosted Supabase, connect as `app_login` through the direct connection or as `app_login.<project-ref>` through the pooler; rotate `APP_DB_PASSWORD` and rerun `pnpm db:roles`.
 
 ## Troubleshooting
 
