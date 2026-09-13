@@ -1,0 +1,232 @@
+           MUNICIPAL TAX COLLECTION PLATFORM
+                                        Developer Project Plan & Development Roadmap
+
+
+   Objective                    Build a secure digital platform to identify and geolocate taxpayers, assess municipal taxes/fees, collect
+                                electronic payments, issue verifiable receipts, reconcile transactions and monitor revenue in real time.
+
+   Core users                   Municipal administrators, finance officers, supervisors, auditors, field/census agents and taxpayers.
+
+   Target MVP                   Pilot-ready platform in approximately 14 weeks, followed by field testing and progressive deployment.
+
+
+
+ 1. Project Objective
+ The platform must create a reliable municipal revenue management system, not only a payment app. It should
+ support taxpayer census, identification, geolocation, assessment, collection, payment verification, reconciliation,
+ reporting and audit. The architecture must allow additional municipal taxes and fees to be added later without
+ rebuilding the system.
+
+ 2. Main Components
+ A. Field Agent / TPE Application
+   • Secure agent login and role permissions.
+
+   • Register individuals, companies, businesses, properties and taxable activities.
+
+   • Capture phone, identification details, address, commune/zone, category, GPS coordinates and photographs.
+
+   • Generate a unique taxpayer ID and QR code.
+
+   • Scan QR codes and view taxes due, outstanding balances and payment history.
+
+   • Initiate electronic payments and issue digital receipts after confirmed payment.
+
+   • Support offline census operations with later synchronization.
+
+   • Agents must never be able to manually mark a transaction as PAID.
+
+ B. Municipal Administration Dashboard
+   • Show registered taxpayers, amount assessed, amount collected, outstanding balances and collection rate.
+
+   • Analyze collections by day/week/month/year, tax type, commune/zone, agent and payment channel.
+
+   • Display a GPS map of taxpayers and collection coverage.
+
+   • Show unpaid taxpayers, failed/cancelled transactions, agent performance and suspicious activity.
+
+   • Export financial and operational reports to Excel/PDF.
+
+   • Support roles such as Administrator, Mayor, Finance, Supervisor, Auditor and Field Agent.
+
+ C. Payment & Reconciliation System
+   • Integrate M-Pesa, Airtel Money, Orange Money, bank/card TPE and future payment providers through APIs.
+
+   • Use a unique transaction reference for every payment.
+
+   • Confirm payment only after successful server/provider confirmation.
+
+   • Handle failed, delayed, duplicated and reversed transactions safely.
+
+   • Perform automatic daily reconciliation between provider records and the platform.
+
+ D. Taxpayer Portal
+
+
+Municipal Tax Collection Platform - Developer Project Plan                                                                              Page 1
+   • Mobile-friendly web portal accessible by QR code or secure link.
+
+   • Allow taxpayers to verify registration, see amounts due and outstanding balances, review payment history, pay and
+     download receipts.
+
+   • Provide receipt authenticity verification and a simple complaint/query function.
+
+ 3. Taxpayer Census & Digital Identity
+ Each taxpayer, property, business or taxable activity should receive a unique municipal digital identity. The data
+ model must allow one taxpayer to own or operate multiple taxable entities.
+
+                                                    Example ID: LUB-KAM-00000125
+ Core relationship: Taxpayer → Business/Property → GPS → Category → Tax obligations → QR Code → Payments
+ → Outstanding amounts → History
+
+ 4. Configurable Tax & Fee Engine
+   • Tax/fee name and taxpayer category.
+
+   • Fixed amount or percentage-based calculation.
+
+   • Monthly, quarterly, annual or configurable frequency.
+
+   • Due dates, exemptions, penalties and effective dates.
+
+   • Administrative configuration without changing application source code.
+
+ 5. QR Code & Geolocation
+ QR scanning should immediately identify the taxpayer/entity and retrieve location, tax category, obligations, payment
+ history and outstanding balance. Receipts should also contain a verification QR code. GPS data should support
+ mapping of registered, paid, unpaid, unvisited and potentially duplicated locations.
+
+ 6. Security & Anti-Fraud
+   • Role-based access control and strong authentication.
+
+   • Encrypted communications and secure API access.
+
+   • Complete immutable audit trail for sensitive actions.
+
+   • Device identification, GPS and time stamping.
+
+   • Duplicate taxpayer and duplicate payment detection.
+
+   • Server-side payment verification and controlled reversals.
+
+   • Backups, recovery procedures and session controls.
+
+   • Record WHO + WHAT + WHEN + WHERE + DEVICE for critical actions.
+
+
+
+
+Municipal Tax Collection Platform - Developer Project Plan                                                            Page 2
+ 7. Notifications
+ Prepare the platform for SMS, WhatsApp and email notifications covering registration confirmation, taxes due,
+ reminders, payment confirmation, receipts, outstanding balances and deadlines.
+
+ 8. Target Technical Architecture
+                                                              Android / TPE App
+
+                                                                       ↓
+
+                                                                  Secure API
+
+                                                                       ↓
+
+                                                  Central Backend + Taxpayer Database
+
+                                                                       ↓
+
+                                                       Tax Engine + Payment Gateway
+
+                                                                       ↓
+
+                                                             Reconciliation Engine
+
+                                                                       ↓
+
+                                                  Municipal Dashboard / Taxpayer Portal
+
+
+
+ 9. Development Phases
+  Phase                           Focus                                                            Main Output
+
+  1. Planning & Prototype         Roles, workflows, database, tax logic, UI/UX, APIs, security     Approved specification & prototype
+
+  2. Core MVP                     Login, census, GPS, QR, tax engine, receipts, dashboard, audit   Field-testable application
+
+  3. Payment Integration          Mobile Money/TPE, confirmations, failures, reversals,            Live payment engine
+                                  reconciliation
+
+  4. Pilot                        Deploy in one selected zone; target 2,000-5,000 taxpayers        Operational field evidence
+
+  5. Version 1.0                  Fix pilot issues; improve UX, speed, security and reporting      Production-ready release
+
+  6. Citywide Deployment          Scale infrastructure, devices, users, zones and tax types        Municipal platform at scale
+
+
+
+ 10. Indicative MVP Timeline
+  Weeks                         Workstream
+
+  1-2                           Requirements, workflows and architecture
+
+  2-3                           UI/UX prototype
+
+  3-6                           Backend and database
+
+  4-7                           Census, QR and GPS
+
+  6-9                           Payment integrations
+
+  7-10                          Dashboard and reporting
+
+  9-11                          Security, audit and reconciliation
+
+  11-13                         Functional, field, security and load testing
+
+
+
+
+Municipal Tax Collection Platform - Developer Project Plan                                                                       Page 3
+  Weeks                         Workstream
+
+  14                            Pilot-ready MVP
+
+
+
+ 11. Required Developer Deliverables Before Full Build
+   • Functional specification
+
+   • Database schema
+
+   • System architecture diagram
+
+   • User-role and permission matrix
+
+   • UI/UX prototype
+
+   • Payment architecture
+
+   • Security architecture
+
+   • API documentation structure
+
+   • Development timeline
+
+   • Testing and acceptance plan
+
+   • Deployment architecture
+
+   • Backup and disaster-recovery plan
+
+ 12. Final Product Vision
+                                       MUNICIPAL REVENUE MANAGEMENT PLATFORM
+
+  Census → Identification → Geolocation → Assessment → Collection → Payment Verification → Receipt
+                                → Reconciliation → Reporting → Audit
+
+ Development should be milestone-based. Each major module should be demonstrated, tested and approved before
+ the next milestone is accepted.
+
+
+
+
+Municipal Tax Collection Platform - Developer Project Plan                                               Page 4
+
