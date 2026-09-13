@@ -1,4 +1,15 @@
-import { boolean, date, index, integer, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  date,
+  index,
+  integer,
+  jsonb,
+  text,
+  timestamp,
+  unique,
+  uuid,
+  type AnyPgColumn,
+} from "drizzle-orm/pg-core";
 
 import { adminRole, agentStatus, app, deviceStatus } from "./enums";
 import { zones } from "./zones";
@@ -11,8 +22,20 @@ export const admins = app.table("admin_users", {
   fullName: text("full_name").notNull(),
   role: adminRole("role").notNull(),
   active: boolean("active").notNull().default(true),
+  disabledAt: timestamp("disabled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/**
+ * Key/value configuration editable by an Administrateur (e.g. `rule_version_approval`:
+ * which roles may approve a tax rule version and whether self-approval is forbidden).
+ */
+export const settings = app.table("settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedByAdminId: uuid("updated_by_admin_id").references((): AnyPgColumn => admins.id),
 });
 
 /** Field agents: matricule + PIN, one assigned zone, registered devices. */

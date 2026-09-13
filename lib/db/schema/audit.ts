@@ -32,6 +32,9 @@ export const auditLog = app.table(
     objectType: text("object_type").notNull(),
     objectId: text("object_id").notNull(),
     details: jsonb("details").notNull().default({}),
+    /** Free-text justification for sensitive actions (category change, waiver, cancellation). */
+    reason: text("reason"),
+    requestId: text("request_id"),
     gps: geometry("gps", { type: "point", mode: "xy", srid: 4326 }),
     ip: inet("ip"),
     deviceId: uuid("device_id").references(() => devices.id),

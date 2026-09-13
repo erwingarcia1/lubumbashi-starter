@@ -7,6 +7,8 @@ import { pgSchema } from "drizzle-orm/pg-core";
 export const app = pgSchema("app");
 
 export const taxpayerKind = app.enum("taxpayer_kind", ["person", "company"]);
+export const taxpayerStatus = app.enum("taxpayer_status", ["active", "merged", "archived"]);
+export const entityStatus = app.enum("entity_status", ["active", "closed"]);
 export const entityKind = app.enum("entity_kind", ["property", "business", "activity"]);
 export const zoneLevel = app.enum("zone_level", ["commune", "quartier"]);
 

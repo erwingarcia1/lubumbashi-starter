@@ -78,6 +78,7 @@ export const taxRuleVersions = app.table(
     penaltyCapBp: integer("penalty_cap_bp"),
     // DECISION-PENDING: D3 — document reference per change, optional.
     referenceDocument: text("reference_document"),
+    notesFr: text("notes_fr"),
     proposedByAdminId: uuid("proposed_by_admin_id").references(() => admins.id),
     approvedByAdminId: uuid("approved_by_admin_id").references(() => admins.id),
     approvedAt: timestamp("approved_at", { withTimezone: true }),

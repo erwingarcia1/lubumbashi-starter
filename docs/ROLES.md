@@ -16,6 +16,8 @@ Placeholders from `docs/DECISIONS.md` D29 apply until answered. R = read, W = wr
 | Exports (Excel, PDF) | all | aggregates | all | zone reports | all | — | own receipts |
 | Admin users and roles | R/W | — | — | — | R | — | — |
 
+Implemented in M3: the approval policy for tax rule versions is data (`app.settings` key `rule_version_approval`: `roles` allowed to approve, `forbidSelfApproval`), default Finances + Administrateur with self-approval forbidden; contact corrections and category changes (with reason) are Superviseur/Administrateur.
+
 Rules already decided in code:
 - `audit_log`, `provider_confirmations` and `receipts` cannot be updated, deleted or truncated by anyone; receipts can only be cancelled with a reason.
 - A payment reaches `confirmed` only with a provider confirmation (database trigger); no agent or admin action can set it.

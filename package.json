@@ -2,7 +2,7 @@
   "name": "lubumbashi-tax",
   "version": "0.0.0",
   "private": true,
-  "description": "Plateforme de recouvrement \u2014 Ville de Lubumbashi",
+  "description": "Plateforme de recouvrement — Ville de Lubumbashi",
   "packageManager": "pnpm@12.4.1",
   "engines": {
     "node": ">=24"
@@ -27,8 +27,12 @@
     "demo:obligations": "tsx scripts/print-obligations.ts"
   },
   "dependencies": {
+    "@fontsource-variable/public-sans": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
     "@next/env": "16.3.5",
     "@node-rs/argon2": "2.2.1",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.116.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.3.0",
     "drizzle-orm": "0.45.2",

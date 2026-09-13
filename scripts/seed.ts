@@ -14,6 +14,7 @@
  */
 import { loadEnvConfig } from "@next/env";
 import { hash } from "@node-rs/argon2";
+import { createClient } from "@supabase/supabase-js";
 import { and, eq, getTableName, sql } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
@@ -22,6 +23,8 @@ import { writeAudit } from "@/lib/audit/write";
 import { createDb, type Db } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
 import { allocateReceiptNo } from "@/lib/identity/ids";
+import { DEFAULT_APPROVAL_POLICY } from "@/lib/identity/roles";
+import { RULE_VERSION_APPROVAL_KEY } from "@/lib/admin/settings";
 import { businessClock, monthPeriodOf, yymm } from "@/lib/time";
 
 /** The demo date used by the prototype ("Sam. 13 sept. 2026"). */
@@ -416,6 +419,52 @@ export interface SeedSummary {
   receipts: number;
   auditRows: number;
   created: string[];
+}
+
+/**
+ * Creates the admin logins in Supabase Auth (local or hosted) with SEED_ADMIN_PASSWORD and links
+ * `admin_users.auth_user_id`. Skipped with a warning when the secret key is not configured.
+ */
+async function seedAuthUsers(db: Db): Promise<string[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const secret = process.env.SUPABASE_SECRET_KEY;
+  const password = process.env.SEED_ADMIN_PASSWORD;
+  if (!url || !secret || !password) {
+    console.warn(
+      "seed: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY or SEED_ADMIN_PASSWORD missing; admin logins not created",
+    );
+    return [];
+  }
+  const created: string[] = [];
+  const auth = createClient(url, secret, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: existing, error } = await auth.auth.admin.listUsers({ perPage: 200 });
+  if (error) throw new Error(`seed: cannot list auth users: ${error.message}`);
+  const rows = await db
+    .select({ id: s.admins.id, email: s.admins.email, authUserId: s.admins.authUserId })
+    .from(s.admins);
+  for (const row of rows) {
+    let user = existing.users.find((u) => u.email?.toLowerCase() === row.email);
+    if (!user) {
+      const { data, error: createError } = await auth.auth.admin.createUser({
+        email: row.email,
+        password,
+        email_confirm: true,
+      });
+      if (createError || !data.user)
+        throw new Error(`seed: cannot create auth user ${row.email}: ${createError?.message}`);
+      user = data.user;
+      created.push(`auth user ${row.email}`);
+    }
+    if (row.authUserId !== user.id) {
+      await db
+        .update(s.admins)
+        .set({ authUserId: user.id, updatedAt: new Date() })
+        .where(eq(s.admins.id, row.id));
+    }
+  }
+  return created;
 }
 
 export async function runSeed(db: Db): Promise<SeedSummary> {
@@ -993,7 +1042,16 @@ export async function runSeed(db: Db): Promise<SeedSummary> {
       });
       created.push("complaint LUB-KAM-00000125");
     }
+
+    // --- settings: who may approve a tax rule version (D29 placeholder) --------------------
+    await tx
+      .insert(s.settings)
+      .values({ key: RULE_VERSION_APPROVAL_KEY, value: DEFAULT_APPROVAL_POLICY })
+      .onConflictDoNothing();
   });
+
+  // --- Supabase Auth users for the admins (identity only; roles live in admin_users) ------
+  created.push(...(await seedAuthUsers(db)));
 
   const count = async (table: Parameters<typeof getTableName>[0]) => {
     const r = await db.execute<{ n: string }>(

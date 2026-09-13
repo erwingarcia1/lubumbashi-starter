@@ -12,7 +12,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
-import { app, entityKind, photoKind, taxpayerKind } from "./enums";
+import { app, entityKind, entityStatus, photoKind, taxpayerKind, taxpayerStatus } from "./enums";
 import { admins, agents, devices } from "./identity";
 import { categories, taxRules } from "./taxes";
 import { zones } from "./zones";
@@ -39,6 +39,8 @@ export const taxpayers = app.table(
     address: text("address").notNull(),
     // DECISION-PENDING: D4 — free-text reason; no automatic exemption logic.
     exemptReason: text("exempt_reason"),
+    status: taxpayerStatus("status").notNull().default("active"),
+    notes: text("notes"),
     registeredAt: timestamp("registered_at", { withTimezone: true }).notNull(),
     registeredByAgentId: uuid("registered_by_agent_id").references(() => agents.id),
     registeredDeviceId: uuid("registered_device_id").references(() => devices.id),
@@ -81,6 +83,9 @@ export const entities = app.table(
     /** Base for percent_of_base rules (e.g. valeur locative), integer FC. */
     taxBaseFc: integer("tax_base_fc"),
     active: boolean("active").notNull().default(true),
+    status: entityStatus("status").notNull().default("active"),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    closedReason: text("closed_reason"),
     registeredAt: timestamp("registered_at", { withTimezone: true }).notNull(),
     registeredByAgentId: uuid("registered_by_agent_id").references(() => agents.id),
     clientUuid: uuid("client_uuid").unique(),

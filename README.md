@@ -30,7 +30,7 @@ colima start --cpu 4 --memory 6
 SUPABASE_USE_SLIM_IMAGES=true supabase start  # Postgres 54322, API 54321, Studio 54323, Mailpit 54324
 cp .env.example .env.local                    # paste the values printed by: supabase status -o env
 pnpm db:migrate                               # migrations + creates the runtime role app_login (APP_DB_PASSWORD)
-pnpm db:seed                                  # prototype data (refuses production)
+pnpm db:seed                                  # prototype data + admin logins (refuses production)
 pnpm exec playwright install chromium --only-shell
 pnpm dev                                      # http://localhost:3000
 ```
@@ -65,6 +65,10 @@ tests/unit      Vitest · tests/e2e   Playwright
 scripts/        seed.ts, later worker.ts (pg-boss)
 docs/           MILESTONES.md, DECISIONS.md, PROMPTS.md, prototype.html, original-project-plan.txt
 ```
+
+## Admin dashboard
+
+`/admin/login` with a seeded account: `ngoy.k@lubumbashi.cd` (Finances), `admin@lubumbashi.cd` (Administrateur), `ilunga.m@lubumbashi.cd` (Superviseur), `maire@`, `auditeur@`; password `SEED_ADMIN_PASSWORD` from `.env.local`. Roles and permissions: `docs/ROLES.md`; the rate-version approval policy is the `rule_version_approval` row of `app.settings`.
 
 ## Database roles
 
