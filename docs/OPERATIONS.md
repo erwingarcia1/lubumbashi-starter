@@ -72,6 +72,23 @@ La clôture de la journée se fait à la main par Finances dans Rapprochement, u
 
 Colima fait tourner Docker dans une VM dont le disque (20 Gio) est un fichier creux sur le Mac : si le Mac est plein, la VM subit des erreurs d'entrée/sortie et Supabase s'arrête. Garder au moins 10 Gio libres ; `docker builder prune -af` puis `colima ssh -- sudo fstrim -av` rendent l'espace au Mac.
 
+## Régression sur le serveur de démonstration
+
+Les parcours Playwright qui n'ont pas besoin d'accéder directement à la base tournent contre le
+serveur (les parcours `portal` et `offline` restent locaux : ils plantent un lien ou comptent des
+lignes en base) :
+
+```bash
+PLAYWRIGHT_BASE_URL=https://13-244-143-138.sslip.io pnpm test:e2e:remote
+```
+
+Ils créent des ménages, encaissent, révoquent un appareil et clôturent la journée : remettre
+ensuite les données de démonstration à zéro sur le serveur :
+
+```bash
+ssh -i ~/Downloads/lubumbashi-tax.pem ubuntu@13.244.143.138 'cd ~/lubumbashi-tax && docker compose --profile ops run --rm migrate pnpm db:reset'
+```
+
 ## Sauvegarde et restauration
 
 Deux niveaux : les sauvegardes automatiques du projet Supabase (quotidiennes, PITR en option) et une
