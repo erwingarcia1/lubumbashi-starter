@@ -36,13 +36,21 @@ test("Finances reconciles the day, resolves the three exception types, closes th
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(300);
   };
+  // Every action redirects to a URL with a fresh `t=` stamp: waiting for it is the only reliable
+  // way to know the action finished, because the success banner text repeats from one action to the next.
+  const submitAndWait = async (click: () => Promise<void>) => {
+    const before = page.url();
+    await click();
+    await page.waitForURL((u) => u.toString() !== before, { timeout: 60_000 });
+    await settle();
+  };
   for (let i = 0; i < 24; i++) {
     await settle();
     const missing = openRow(/Absent du relevé/);
     const duplicate = openRow(/Doublon fournisseur/);
     const unknown = openRow(/Hors plateforme/);
     if (await missing.isVisible().catch(() => false)) {
-      await missing.getByRole("button", { name: /^Re-interroger/ }).click();
+      await submitAndWait(() => missing.getByRole("button", { name: /^Re-interroger/ }).click());
       await expect(
         page.getByText(/Le fournisseur confirme le paiement|ne confirme toujours pas/),
       ).toBeVisible();
@@ -56,7 +64,7 @@ test("Finances reconciles the day, resolves the three exception types, closes th
         const row = openRow(/Absent du relevé/);
         await row.getByRole("button", { name: "Clôturer l’écart" }).click();
         await row.getByLabel("Résolution").fill("Montant de test refusé par le simulateur");
-        await row.getByRole("button", { name: "Clôturer l’écart" }).click();
+        await submitAndWait(() => row.getByRole("button", { name: "Clôturer l’écart" }).click());
         await expect(page.getByText("Écart clôturé.")).toBeVisible();
       }
       continue;
@@ -73,7 +81,9 @@ test("Finances reconciles the day, resolves the three exception types, closes th
     if (await unknown.isVisible().catch(() => false)) {
       await unknown.getByRole("button", { name: "Rattacher à un contribuable" }).click();
       await unknown.getByLabel("Identifiant du contribuable").fill("LUB-KAM-00000127");
-      await unknown.getByRole("button", { name: "Rattacher à un contribuable" }).click();
+      await submitAndWait(() =>
+        unknown.getByRole("button", { name: "Rattacher à un contribuable" }).click(),
+      );
       await expect(page.getByText("Ligne rattachée : paiement et reçu créés.")).toBeVisible();
       continue;
     }
