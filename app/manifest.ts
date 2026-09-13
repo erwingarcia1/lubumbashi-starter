@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 import { t } from "@/lib/i18n";
 
-/** Installable agent PWA (no service worker until M8; Chrome no longer requires one to install). */
+/** Installable agent PWA; the Serwist service worker (app/sw.ts) caches the shell from M8. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: `${t.agent.appName} · ${t.admin.brand}`,

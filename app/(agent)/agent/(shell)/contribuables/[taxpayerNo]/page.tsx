@@ -10,6 +10,7 @@ import { businessDate } from "@/lib/time";
 
 import { Pill } from "../../../../../(admin)/admin/_components/pill";
 import { AgentHeader } from "../../../_components/header";
+import { ContactForm } from "./contact-form";
 
 const tone = { paid: "ok", due: "warn", late: "bad" } as const;
 
@@ -81,6 +82,13 @@ export default async function AgentTaxpayerPage({
               <b className="text-right">{v}</b>
             </div>
           ))}
+          <div className="mt-2.5">
+            <ContactForm
+              taxpayerNo={d.taxpayer.taxpayerNo}
+              phone={d.taxpayer.phone}
+              address={d.taxpayer.address}
+            />
+          </div>
         </div>
         <div className="rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3 text-[12.5px]">
           <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">

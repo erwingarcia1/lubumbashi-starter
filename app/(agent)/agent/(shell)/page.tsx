@@ -18,6 +18,7 @@ import { summarizeBalance } from "@/lib/registry/balance";
 import { businessDate } from "@/lib/time";
 
 import { AgentHeader } from "../_components/header";
+import { SyncBadge } from "../_components/sync-badge";
 import { Pill } from "../../../(admin)/admin/_components/pill";
 import { SignOutButton } from "./sign-out";
 
@@ -106,9 +107,7 @@ export default async function AgentHomePage() {
         }
       />
       <div className="flex flex-1 flex-col gap-3 px-4 py-3.5">
-        <div className="bg-ok-soft text-ok rounded-lg px-3 py-2.5 text-[13px]">
-          ✓ {t.agent.home.syncedAgo}
-        </div>
+        <SyncBadge />
         <div className="flex gap-2.5">
           <div className="flex-1 rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3">
             <div className="text-[12.5px] text-[#5C5456]">{t.agent.home.registeredToday}</div>

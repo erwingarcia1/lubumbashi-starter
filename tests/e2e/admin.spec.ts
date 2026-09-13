@@ -40,8 +40,10 @@ test.describe("Mairie dashboard (M3)", () => {
     await expect(
       page.getByRole("heading", { name: /Taxe d’assainissement · Ménage/ }),
     ).toBeVisible();
+    // One draft per (rule, effective date): pick a date no previous run used.
+    const effectiveFrom = `${2100 + Math.floor(Math.random() * 800)}-03-01`;
     await page.getByLabel("Montant (FC)").fill("5500");
-    await page.getByLabel("Nouvelle version en vigueur le").fill("2099-03-01");
+    await page.getByLabel("Nouvelle version en vigueur le").fill(effectiveFrom);
     await page.getByRole("button", { name: "Enregistrer (nécessite l’approbation)" }).click();
     await expect(
       page.getByText("Version proposée. Elle s’appliquera après approbation."),

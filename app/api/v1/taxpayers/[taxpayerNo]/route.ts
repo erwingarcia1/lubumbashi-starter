@@ -1,5 +1,6 @@
-import { fail, ok } from "@/lib/api/respond";
+import { fail, ok, parseBody } from "@/lib/api/respond";
 import { getTaxpayerDetail } from "@/lib/admin/taxpayers";
+import { agentContactInput, ContactError, updateContactAsAgent } from "@/lib/census/contact";
 import { getDb } from "@/lib/db/client";
 import { getAgentSession } from "@/lib/identity/agent-session";
 
@@ -42,4 +43,23 @@ export async function GET(
       receiptNo: p.receiptNo,
     })),
   });
+}
+
+/** Contact fields only (phone, address); the offline outbox replays this with its client UUID. */
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ taxpayerNo: string }> },
+) {
+  const session = await getAgentSession();
+  if (!session) return fail("unauthenticated", 401);
+  const { taxpayerNo } = await params;
+  const body = await parseBody(request, agentContactInput);
+  if ("error" in body) return body.error;
+  if (body.data.taxpayerNo !== taxpayerNo) return fail("invalid_input", 422);
+  try {
+    return ok(await updateContactAsAgent(getDb(), session, body.data));
+  } catch (err) {
+    if (err instanceof ContactError) return fail(err.code, err.code === "not_found" ? 404 : 422);
+    throw err;
+  }
 }

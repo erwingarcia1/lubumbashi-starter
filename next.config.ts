@@ -1,3 +1,4 @@
+import withSerwistInit from "@serwist/next";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -8,4 +9,21 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@react-pdf/renderer"],
 };
 
-export default nextConfig;
+/**
+ * The agent PWA's service worker is built by Serwist, which needs webpack: `pnpm build` runs
+ * `next build --webpack`. In development (Turbopack) the worker is not generated and the config
+ * is left untouched, so `next dev` keeps its default bundler.
+ */
+const withSerwist = withSerwistInit({
+  swSrc: "app/sw.ts",
+  swDest: "public/sw.js",
+  cacheOnNavigation: true,
+  reloadOnOnline: false,
+  additionalPrecacheEntries: [
+    { url: "/agent/hors-ligne", revision: process.env.SW_REVISION ?? "1" },
+  ],
+  // The agent phone must not download the dashboard's or the portal's chunks (first load < 500 KB).
+  exclude: [/\(admin\)/, /\(portal\)/, /\.map$/, /^build-manifest\.json$/],
+});
+
+export default process.env.NODE_ENV === "development" ? nextConfig : withSerwist(nextConfig);

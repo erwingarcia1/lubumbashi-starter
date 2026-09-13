@@ -1,0 +1,57 @@
+import Dexie, { type EntityTable } from "dexie";
+
+/**
+ * The agent phone's local store (IndexedDB). The outbox holds census records and contact updates
+ * only: payments are online-only (CLAUDE.md invariant 3) and have no place here, by type.
+ */
+export const OUTBOX_KINDS = ["census", "contact_update"] as const;
+export type OutboxKind = (typeof OUTBOX_KINDS)[number];
+export type OutboxStatus = "queued" | "done" | "failed";
+export type PhotoKind = "person" | "id_card" | "facade";
+
+export interface OutboxItem {
+  id?: number;
+  kind: OutboxKind;
+  /** Client UUID: the server is idempotent on it, so a retry never creates a second record. */
+  clientUuid: string;
+  payload: unknown;
+  /** What the queue screen shows (name · address). */
+  label: string;
+  createdAt: string;
+  attempts: number;
+  lastError: string | null;
+  status: OutboxStatus;
+  /** Server-side reference once done (taxpayer number). */
+  serverRef: string | null;
+  /** Photos captured with a census record; uploaded after the record, never blocking it. */
+  photos: Array<{ kind: PhotoKind; blob: Blob }>;
+  /** Entity id returned by the server, needed to upload the photos. */
+  entityId: string | null;
+}
+
+export interface CacheEntry {
+  key: string;
+  value: unknown;
+  syncedAt: string;
+}
+
+export class AgentDb extends Dexie {
+  outbox!: EntityTable<OutboxItem, "id">;
+  cache!: EntityTable<CacheEntry, "key">;
+
+  constructor(name = "lubumbashi-agent") {
+    super(name);
+    this.version(1).stores({
+      outbox: "++id, clientUuid, status, createdAt",
+      cache: "key",
+    });
+  }
+}
+
+let instance: AgentDb | undefined;
+
+/** One database per browser profile; created on first use (never at import time: SSR bundles). */
+export function getAgentDb(): AgentDb {
+  instance ??= new AgentDb();
+  return instance;
+}

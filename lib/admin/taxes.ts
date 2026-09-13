@@ -127,6 +127,17 @@ export async function proposeRuleVersion(
     if (!latest) throw new AdminError("invalid_state", "rule has no version to derive from");
     if (latest.calcKind !== "fixed")
       throw new AdminError("invalid_state", "only fixed-amount rules can be edited in M3");
+    const [existing] = await tx
+      .select({ id: taxRuleVersions.id })
+      .from(taxRuleVersions)
+      .where(
+        and(
+          eq(taxRuleVersions.taxRuleId, rule.id),
+          eq(taxRuleVersions.effectiveFrom, input.effectiveFrom),
+        ),
+      );
+    if (existing)
+      throw new AdminError("invalid_state", "a version already exists for this effective date");
     const [created] = await tx
       .insert(taxRuleVersions)
       .values({

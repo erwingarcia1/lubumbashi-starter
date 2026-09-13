@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDateFr, formatFC } from "@/lib/i18n/format";
 import { t } from "@/lib/i18n";
+import { getAgentDb } from "@/lib/offline/db";
+import { useOnline, useOutboxCounts } from "@/lib/offline/hooks";
+import { enqueue, syncOutbox } from "@/lib/offline/outbox";
 
 import { AgentHeader } from "../../_components/header";
 
@@ -73,7 +76,10 @@ export function CensusWizard({
   appUrl: string;
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [clientUuid] = useState(() => crypto.randomUUID());
+  const [clientUuid, setClientUuid] = useState(() => crypto.randomUUID());
+  const online = useOnline();
+  const outbox = useOutboxCounts();
+  const [offlineSaved, setOfflineSaved] = useState(false);
   const [kind, setKind] = useState<"person" | "company">("person");
   const [fullName, setFullName] = useState("");
   const [contactName, setContactName] = useState("");
@@ -137,11 +143,19 @@ export function CensusWizard({
     }, 500);
   }, [phone, fullName, gps]);
 
+  // Obligation preview; the last online answer per category is kept for offline use.
   useEffect(() => {
     if (step !== 2) return;
-    void api<Preview[]>("/api/v1/census/preview", { categoryCode: category }).then((r) =>
-      setPreview(r.ok ? r.data : []),
-    );
+    const key = `preview:${category}`;
+    void api<Preview[]>("/api/v1/census/preview", { categoryCode: category }).then(async (r) => {
+      if (r.ok) {
+        setPreview(r.data);
+        await getAgentDb().cache.put({ key, value: r.data, syncedAt: new Date().toISOString() });
+        return;
+      }
+      const cached = await getAgentDb().cache.get(key);
+      setPreview(Array.isArray(cached?.value) ? (cached.value as Preview[]) : []);
+    });
   }, [step, category]);
 
   useEffect(() => {
@@ -162,7 +176,7 @@ export function CensusWizard({
     }
     setBusy(true);
     setError(null);
-    const r = await api<Result>("/api/v1/census", {
+    const payload = {
       clientUuid,
       taxpayer: {
         kind,
@@ -182,16 +196,55 @@ export function CensusWizard({
         gps,
       },
       capturedAt: new Date().toISOString(),
-    });
-    setBusy(false);
-    if (!r.ok) {
+    };
+    const r = navigator.onLine ? await api<Result>("/api/v1/census", payload) : null;
+    if (r?.ok) {
+      setBusy(false);
+      setResult(r.data);
+      setStep(3);
+      void uploadPhotos(r.data.entityId);
+      return;
+    }
+    if (r && r.code !== "network") {
+      setBusy(false);
       const code = r.code as keyof typeof R.errors;
       setError(R.errors[code] ?? R.errors.invalid_input);
       return;
     }
-    setResult(r.data);
+    // No network: the record (and its photos) wait in the outbox; the server assigns the ID later.
+    await enqueue(getAgentDb(), {
+      kind: "census",
+      clientUuid,
+      payload,
+      label: `${payload.taxpayer.fullName} · ${payload.taxpayer.address}`,
+      photos: (Object.entries(photos) as Array<[keyof typeof photos, Blob | undefined]>)
+        .filter((e): e is [keyof typeof photos, Blob] => !!e[1])
+        .map(([kind, blob]) => ({ kind, blob })),
+    });
+    setBusy(false);
+    setOfflineSaved(true);
     setStep(3);
-    void uploadPhotos(r.data.entityId);
+    if (navigator.onLine) void syncOutbox(getAgentDb());
+  }
+
+  /** Same form, fresh record: no navigation, so it also works with no network. */
+  function reset() {
+    setClientUuid(crypto.randomUUID());
+    setFullName("");
+    setContactName("");
+    setPhone("+243");
+    setIdNumber("");
+    setAddress("");
+    setEntityName("");
+    setPhotos({});
+    setPhotoStatus(null);
+    setDuplicates([]);
+    setPreview([]);
+    setResult(null);
+    setQr(null);
+    setOfflineSaved(false);
+    setError(null);
+    setStep(1);
   }
 
   /** Photos go straight to the private bucket through one-shot signed URLs; failures never block the record. */
@@ -381,6 +434,11 @@ export function CensusWizard({
                 className="h-12 text-base"
               />
             </div>
+            {!online ? (
+              <p className="border-warn bg-warn-soft rounded border-l-4 px-3 py-2 text-[12.5px]">
+                {R.offlineDuplicates}
+              </p>
+            ) : null}
             {duplicates.length > 0 ? (
               <div className="border-warn bg-warn-soft rounded border-l-4 px-3 py-2 text-[12.5px]">
                 {R.duplicate} <b>{duplicates[0]!.fullName}</b>{" "}
@@ -483,6 +541,11 @@ export function CensusWizard({
                   : (gpsError ?? R.gpsWaiting)}
               </p>
             </div>
+            {!online && preview.length === 0 ? (
+              <p className="border-warn bg-warn-soft rounded border-l-4 px-3 py-2 text-[12.5px]">
+                {R.offlinePreview}
+              </p>
+            ) : null}
             <div className="rounded-lg border-l-4 border-[#C1121F] bg-white px-3.5 py-2.5 text-[12.5px]">
               {[
                 [R.obligation, firstDue ? firstDue.ruleCode : t.common.none],
@@ -572,12 +635,60 @@ export function CensusWizard({
             >
               {R.printLater}
             </button>
-            <Link
-              href="/agent/recenser"
-              className="text-center text-[12.5px] text-[#5C5456] underline"
+            <button
+              type="button"
+              onClick={reset}
+              className="min-h-12 text-center text-[12.5px] text-[#5C5456] underline"
             >
               {R.newOne}
+            </button>
+          </div>
+        ) : null}
+
+        {step === 3 && offlineSaved ? (
+          <div className="flex flex-1 flex-col gap-3">
+            <div className="text-center">
+              <div className="bg-warn mx-auto my-2 grid h-16 w-16 place-items-center rounded-full text-[34px] text-white">
+                ⏳
+              </div>
+              <div className="text-[16px] font-bold">{R.offlineSaved}</div>
+              <div className="mt-1 text-[12.5px] text-[#5C5456]">{R.offlineId}</div>
+            </div>
+            <div className="rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-2.5 text-[12.5px]">
+              {[
+                [R.fullName, fullName],
+                [R.entityName, entityName || address],
+                [R.phone, phone],
+                [
+                  R.photos,
+                  Object.keys(photos).length ? String(Object.keys(photos).length) : t.common.none,
+                ],
+              ].map(([k, v]) => (
+                <div
+                  key={k}
+                  className="flex justify-between border-b border-[#EFEAEA] py-1.5 last:border-0"
+                >
+                  <span>{k}</span>
+                  <b>{v}</b>
+                </div>
+              ))}
+            </div>
+            <div className="border-warn bg-warn-soft rounded border-l-4 px-3 py-2 text-[12.5px]">
+              {R.offlineQueued.replace("{n}", outbox ? String(outbox.queued) : "…")}
+            </div>
+            <Link
+              href="/agent/sync"
+              className="block min-h-12 rounded-lg border border-[#D5CFCF] bg-white px-3.5 py-3 text-center text-[15px] font-semibold"
+            >
+              {R.viewQueue}
             </Link>
+            <button
+              type="button"
+              onClick={reset}
+              className="min-h-12 rounded-lg bg-[#C1121F] px-3.5 py-3 text-[15px] font-semibold text-white"
+            >
+              {R.newOne}
+            </button>
           </div>
         ) : null}
       </div>
