@@ -24,3 +24,14 @@ Business and legal questions the code must not answer on its own. While a decisi
 | D18 | Data protection rules for citizen data (names, phone, GPS, photos) | OPEN | Phone masked in UI for Agent role; photos private bucket | |
 | D19 | Language(s) for citizens: French only or French + Swahili | OPEN | French only | |
 | D20 | Pilot commune and expected number of households | OPEN | Kampemba, ~2 500 | |
+| D21 | Receipt counter per year or per month (the prototype's numbers reset monthly; invariant 7 says per year); must the series be gapless? | OPEN | Per-year gapless counter row (`receipt_counters`) locked in the receipt transaction; format `RCP-YYMM-NNNNNN` | |
+| D22 | Rounding rule for percentage taxes and penalties (integer FC) | OPEN | Rates stored as integer basis points; results rounded half up to the nearest franc | |
+| D23 | Hosting and deployment target (interacts with D17) | ANSWERED 2026-09-13 | — | Docker Compose on a VM: `web` + `worker`; Supabase for Postgres, Auth, Storage |
+| D24 | Official three-letter commune codes for taxpayer IDs (naive abbreviations collide: Kampemba/Kamalondo; Lubumbashi gives `LUB-LUB`) | OPEN | `zones.code` explicit column seeded KAM, LUB, KEN, KAT, KAL, RUA, ANN | |
+| D25 | Exact field terminal model; paper receipts and QR stickers printed at the door from the built-in thermal printer? (needs a native wrapper) | ANSWERED 2026-09-13 | — | PWA only for the pilot; ESC/POS ticket renderer kept ready; verify Google Play/Chrome on the model before M4 |
+| D26 | For each pilot tax: which legal entity is the creditor (Ville, Commune, Province), which merchant account receives funds, which legal mentions the receipt must carry | OPEN | Assainissement only; creditor "Ville de Lubumbashi"; one merchant account; header text only | |
+| D27 | Does liability start at registration date or earlier (the prototype shows July/August obligations for households registered on 2 September)? | OPEN | Obligations start with the period of registration; no back-dated obligations | |
+| D28 | How long a payment stays `pending` before `expired` (prototype: agent waits 2 min, platform re-queries 24 h); is a provider confirmation after expiry accepted? | OPEN | `PAYMENT_EXPIRY_HOURS=24`; `expired → confirmed` accepted on a valid provider confirmation and flagged for reconciliation | |
+| D29 | Who may waive or cancel an obligation, cancel a receipt, merge taxpayers, change a category, request a reversal, attach a provider line; reason mandatory; second approver; thresholds | OPEN | Reason + audit row always; waive/cancel/reversal/attach need Finances plus a second admin user; merge and category change need Superviseur | |
+| D30 | Are photos mandatory at census, and how many? | OPEN | Optional, one façade photo, ≤ 300 KB | |
+| D31 | Agent app idle lock and offline unlock policy | OPEN | Lock after 10 min idle; PIN unlock offline bound to a 12 h device session | |

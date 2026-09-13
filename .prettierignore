@@ -1,0 +1,11 @@
+# docs/prototype.html is the UI specification: never reformat it
+docs/
+drizzle/
+supabase/
+.next/
+node_modules/
+coverage/
+playwright-report/
+test-results/
+pnpm-lock.yaml
+CLAUDE.md

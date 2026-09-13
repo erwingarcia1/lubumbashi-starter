@@ -1,0 +1,9 @@
+# Single-package repository. pnpm >= 11 reads its settings from this file, not from .npmrc.
+packages:
+  - "."
+
+# pnpm 12 refuses to run dependency build scripts that were not reviewed.
+# These two are the only ones in the M0 tree (esbuild: drizzle-kit; unrs-resolver: eslint import resolver).
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
