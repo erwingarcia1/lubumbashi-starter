@@ -1,0 +1,59 @@
+# Online demo / pilot stack (D23). Secrets come from .env.production (never committed).
+# 1. cp .env.example .env.production and fill in the hosted Supabase values + APP_DOMAIN
+# 2. docker compose --profile ops run --rm migrate      (migrations, roles, optional seed)
+# 3. docker compose up -d web caddy                     (Caddy obtains the TLS certificate)
+services:
+  web:
+    build:
+      context: .
+      target: web
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+    env_file: .env.production
+    environment:
+      APP_ENV: ${APP_ENV:-demo}
+      TZ: Africa/Lubumbashi
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
+  migrate:
+    profiles: ["ops"]
+    build:
+      context: .
+      target: ops
+    env_file: .env.production
+    environment:
+      APP_ENV: ${APP_ENV:-demo}
+    command: sh -c "pnpm db:migrate && ${SEED_ON_DEPLOY:+pnpm db:seed}"
+
+  # pg-boss worker (reconciliation, penalties, notifications) arrives with M5/M9.
+  worker:
+    profiles: ["worker"]
+    build:
+      context: .
+      target: ops
+    env_file: .env.production
+    command: pnpm tsx scripts/worker.ts
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

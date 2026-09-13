@@ -70,6 +70,10 @@ docs/           MILESTONES.md, DECISIONS.md, PROMPTS.md, prototype.html, origina
 
 `/admin/login` with a seeded account: `ngoy.k@lubumbashi.cd` (Finances), `admin@lubumbashi.cd` (Administrateur), `ilunga.m@lubumbashi.cd` (Superviseur), `maire@`, `auditeur@`; password `SEED_ADMIN_PASSWORD` from `.env.local`. Roles and permissions: `docs/ROLES.md`; the rate-version approval policy is the `rule_version_approval` row of `app.settings`.
 
+## Agent app
+
+`/agent/login` on a phone-sized viewport: matricule `AG-KAM-007`, PIN `123456` (seeded). The first login registers the browser as a device (`DEV-xxxx`, secret in localStorage); revoking the device in the database logs it out on the next request. Camera and GPS need HTTPS on a real phone: see `docs/OPERATIONS.md` (tunnel or VM deploy).
+
 ## Database roles
 
 - Migrations and role management use the owner connection (`DATABASE_URL_MIGRATIONS`).

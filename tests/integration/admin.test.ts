@@ -38,8 +38,23 @@ const sessionFor = async (email: string, role: AdminSession["role"]): Promise<Ad
 };
 
 describe("admin core: tax rule versions and taxpayer edits", () => {
+  /** The Playwright flow leaves versions behind; start from the seeded state (v1 only, open-ended). */
+  async function resetMenageVersions() {
+    const db = appDb();
+    const rule = await getRuleWithVersions(db, "assainissement_menage");
+    for (const v of rule!.versions) {
+      if (v.version === 1)
+        await db
+          .update(taxRuleVersions)
+          .set({ effectiveTo: null, status: "approved" })
+          .where(eq(taxRuleVersions.id, v.id));
+      else await db.delete(taxRuleVersions).where(eq(taxRuleVersions.id, v.id));
+    }
+  }
+
   beforeAll(async () => {
     await runSeed(appDb());
+    await resetMenageVersions();
     finances = await sessionFor("ngoy.k@lubumbashi.cd", "finances");
     finances2 = await sessionFor("admin@lubumbashi.cd", "administrateur");
     superviseur = await sessionFor("ilunga.m@lubumbashi.cd", "superviseur");
