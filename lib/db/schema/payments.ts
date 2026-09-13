@@ -44,6 +44,8 @@ export const payments = app.table(
     status: paymentStatus("status").notNull().default("initiated"),
     /** The provider's own id for the request we sent, if it returns one. */
     providerRequestId: text("provider_request_id"),
+    /** Obligations the payer chose (null = all open ones); allocation serves them first. */
+    targetObligationIds: uuid("target_obligation_ids").array(),
     initiatedByAgentId: uuid("initiated_by_agent_id").references(() => agents.id),
     initiatedDeviceId: uuid("initiated_device_id").references(() => devices.id),
     // DECISION-PENDING: D28 — expiry after PAYMENT_EXPIRY_HOURS (24).

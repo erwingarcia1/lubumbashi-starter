@@ -74,6 +74,10 @@ docs/           MILESTONES.md, DECISIONS.md, PROMPTS.md, prototype.html, origina
 
 `/agent/login` on a phone-sized viewport: matricule `AG-KAM-007`, PIN `123456` (seeded). The first login registers the browser as a device (`DEV-xxxx`, secret in localStorage); revoking the device in the database logs it out on the next request. Camera and GPS need HTTPS on a real phone: see `docs/OPERATIONS.md` (tunnel or VM deploy).
 
+## Payments (mock)
+
+`PAYMENT_PROVIDERS=mock` routes every channel to the simulator: a payment confirms 3 s after initiation, or fails when the amount ends in 999. The simulator is refused when `APP_ENV=production` (CLAUDE.md invariant 1). Receipts: `/api/v1/receipts/<no>/pdf`; public check: `/v/<no>/<token>` (link on the receipt).
+
 ## Database roles
 
 - Migrations and role management use the owner connection (`DATABASE_URL_MIGRATIONS`).

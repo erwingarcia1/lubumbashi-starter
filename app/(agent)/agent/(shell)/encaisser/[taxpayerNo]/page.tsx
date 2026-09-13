@@ -1,32 +1,33 @@
-import Link from "next/link";
+import { notFound } from "next/navigation";
 
+import { getTaxpayerDetail } from "@/lib/admin/taxpayers";
+import { getDb } from "@/lib/db/client";
+import { requireAgent } from "@/lib/identity/agent-session";
+import { availableChannels } from "@/lib/payments/registry";
 import { t } from "@/lib/i18n";
 
 import { AgentHeader } from "../../../_components/header";
+import { CollectFlow } from "./collect-flow";
 
-export default async function CollectSoonPage({
-  params,
-}: {
-  params: Promise<{ taxpayerNo: string }>;
-}) {
+export default async function CollectPage({ params }: { params: Promise<{ taxpayerNo: string }> }) {
+  const session = await requireAgent();
   const { taxpayerNo } = await params;
+  const d = await getTaxpayerDetail(getDb(), taxpayerNo);
+  if (!d) notFound();
   return (
     <>
       <AgentHeader
-        title={t.agent.profile.collect}
-        subtitle={<span className="font-mono">{taxpayerNo}</span>}
+        title={t.agent.pay.title}
+        subtitle={`${d.taxpayer.fullName} · ${taxpayerNo.slice(-5)}`}
       />
-      <div className="flex flex-col gap-3 px-4 py-3.5">
-        <div className="border-warn bg-warn-soft rounded border-l-4 px-3 py-2 text-[12.5px]">
-          {t.agent.profile.collectSoon}
-        </div>
-        <Link
-          href={`/agent/contribuables/${taxpayerNo}` as never}
-          className="block min-h-12 rounded-lg border border-[#D5CFCF] bg-white px-3.5 py-3 text-center text-[15px] font-semibold"
-        >
-          {t.common.back}
-        </Link>
-      </div>
+      <CollectFlow
+        taxpayerNo={taxpayerNo}
+        taxpayerName={d.taxpayer.fullName}
+        phone={d.taxpayer.phone}
+        outstandingFc={d.balance.outstandingFc}
+        channels={availableChannels()}
+        agentMatricule={session.matricule}
+      />
     </>
   );
 }

@@ -8,6 +8,25 @@ const eslintConfig = defineConfig([
   ...nextTs,
   // Prettier owns formatting; this switches off the ESLint rules that would fight it.
   prettier,
+  // CLAUDE.md: nothing outside lib/payments may import a provider directly.
+  {
+    files: ["**/*.{ts,tsx,mts}"],
+    ignores: ["lib/payments/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/lib/payments/providers/*", "**/payments/providers/*"],
+              message:
+                "Use lib/payments/registry.getProvider(); providers are internal to lib/payments.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   globalIgnores([
     ".next/**",
     "out/**",

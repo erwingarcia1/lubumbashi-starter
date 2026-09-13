@@ -43,6 +43,13 @@
       "when": 1789322186854,
       "tag": "0005_photo_kinds",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789323136557,
+      "tag": "0006_payment_targets",
+      "breakpoints": true
     }
   ]
 }

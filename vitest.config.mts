@@ -15,6 +15,18 @@ export default defineConfig({
       // CLAUDE.md: the tax engine (and, from M5, the payment state machine) must be 100 % covered.
       thresholds: {
         "lib/tax-engine/**": { lines: 100, functions: 100, branches: 100, statements: 100 },
+        // The payment state machine and its pure companions must be 100 % covered; the
+        // database-bound service is exercised by the integration project.
+        "lib/payments/state-machine.ts": {
+          lines: 100,
+          functions: 100,
+          branches: 100,
+          statements: 100,
+        },
+        "lib/payments/reference.ts": { lines: 100, functions: 100, branches: 100, statements: 100 },
+        "lib/payments/providers/**": { lines: 100, functions: 100, branches: 100, statements: 100 },
+        "lib/payments/registry.ts": { lines: 100, functions: 100, branches: 100, statements: 100 },
+        "lib/payments/service.ts": { lines: 85, functions: 90, branches: 65, statements: 85 },
       },
     },
     projects: [

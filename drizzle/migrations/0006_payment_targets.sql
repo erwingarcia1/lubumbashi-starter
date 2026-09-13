@@ -1,0 +1,1 @@
+ALTER TABLE "app"."payments" ADD COLUMN "target_obligation_ids" uuid[];
