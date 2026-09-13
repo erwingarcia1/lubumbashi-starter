@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,8 @@ function deviceLabel(): string {
 
 export function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const expired = params.get("expired") === "1";
   const [device, setDevice] = useState<StoredDevice | null>(null);
   const [online, setOnline] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +48,8 @@ export function LoginForm() {
       setDevice(readDevice());
       setOnline(navigator.onLine);
     }, 0);
+    // A signed cookie whose device was revoked: drop it so the proxy stops trusting it.
+    if (expired) void fetch("/api/v1/agent/logout", { method: "POST" });
     const up = () => setOnline(true);
     const down = () => setOnline(false);
     window.addEventListener("online", up);
@@ -55,7 +59,7 @@ export function LoginForm() {
       window.removeEventListener("online", up);
       window.removeEventListener("offline", down);
     };
-  }, []);
+  }, [expired]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

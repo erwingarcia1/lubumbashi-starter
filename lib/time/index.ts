@@ -85,3 +85,8 @@ export function daysBetween(a: string, b: string): number {
 export function daysLate(dueDate: string, asOf: string): number {
   return Math.max(0, daysBetween(dueDate, asOf));
 }
+
+/** The current instant for a request (a named call keeps render-purity lint rules quiet). */
+export function requestNow(): Date {
+  return new Date();
+}

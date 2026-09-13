@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ZodError } from "zod";
 
+import { revokeDevice } from "@/lib/admin/agents";
 import { AdminError, type AdminErrorCode } from "@/lib/admin/errors";
 import { approveRuleVersion, proposeRuleVersion } from "@/lib/admin/taxes";
 import { changeEntityCategory, updateTaxpayerContact } from "@/lib/admin/taxpayers";
@@ -144,4 +145,21 @@ export async function changeCategoryAction(formData: FormData) {
       ? `/admin/contribuables/${taxpayerNo}?error=${error}`
       : `/admin/contribuables/${taxpayerNo}?ok=category`,
   );
+}
+
+export async function revokeDeviceAction(formData: FormData) {
+  const session = await requireAdmin();
+  let error: AdminErrorCode | undefined;
+  try {
+    await revokeDevice(
+      getDb(),
+      session,
+      { deviceId: str(formData, "deviceId"), reason: str(formData, "reason") },
+      await requestContext(),
+    );
+  } catch (err) {
+    error = codeOf(err);
+  }
+  revalidatePath("/admin/agents");
+  redirect(error ? `/admin/agents?error=${error}` : "/admin/agents?ok=revoked");
 }

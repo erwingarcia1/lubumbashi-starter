@@ -7,16 +7,16 @@ import { signOutAction } from "../_actions";
 import { SideNav, type NavItem } from "../_components/side-nav";
 
 const NAV: NavItem[] = [
-  { key: "overview", label: t.admin.nav.overview, href: "/admin/bientot/overview", live: false },
+  { key: "overview", label: t.admin.nav.overview, href: "/admin", live: true },
   {
     key: "collections",
     label: t.admin.nav.collections,
-    href: "/admin/bientot/collections",
-    live: false,
+    href: "/admin/recettes",
+    live: true,
   },
-  { key: "map", label: t.admin.nav.map, href: "/admin/bientot/map", live: false },
+  { key: "map", label: t.admin.nav.map, href: "/admin/carte", live: true },
   { key: "taxpayers", label: t.admin.nav.taxpayers, href: "/admin/contribuables", live: true },
-  { key: "agents", label: t.admin.nav.agents, href: "/admin/bientot/agents", live: false },
+  { key: "agents", label: t.admin.nav.agents, href: "/admin/agents", live: true },
   {
     key: "reconciliation",
     label: t.admin.nav.reconciliation,

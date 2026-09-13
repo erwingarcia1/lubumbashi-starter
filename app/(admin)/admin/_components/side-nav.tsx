@@ -15,7 +15,10 @@ export function SideNav({ items }: { items: NavItem[] }) {
   return (
     <nav className="flex flex-col gap-0.5">
       {items.map((item) => {
-        const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const active =
+          item.href === "/admin"
+            ? pathname === "/admin"
+            : pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
           <Link
             key={item.key}

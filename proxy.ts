@@ -23,7 +23,7 @@ export async function proxy(request: NextRequest) {
       to.search = "";
       return NextResponse.redirect(to);
     }
-    if (payload && isLogin) {
+    if (payload && isLogin && !request.nextUrl.searchParams.has("expired")) {
       const to = request.nextUrl.clone();
       to.pathname = "/agent";
       to.search = "";

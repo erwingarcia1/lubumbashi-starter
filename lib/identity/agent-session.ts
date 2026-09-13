@@ -112,6 +112,7 @@ export async function getAgentSession(): Promise<AgentSession | null> {
 
 export async function requireAgent(): Promise<AgentSession> {
   const session = await getAgentSession();
-  if (!session) redirect("/agent/login");
+  // `expired=1` tells proxy.ts not to bounce a still-signed cookie back here (device revoked / agent suspended).
+  if (!session) redirect("/agent/login?expired=1");
   return session;
 }
