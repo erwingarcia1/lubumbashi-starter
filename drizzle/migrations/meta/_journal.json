@@ -36,6 +36,13 @@
       "when": 1789320575302,
       "tag": "0004_admin_status_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789322186854,
+      "tag": "0005_photo_kinds",
+      "breakpoints": true
     }
   ]
 }

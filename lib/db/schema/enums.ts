@@ -66,7 +66,7 @@ export const adminRole = app.enum("admin_role", [
 ]);
 export const actorType = app.enum("actor_type", ["admin", "agent", "system", "taxpayer"]);
 
-export const photoKind = app.enum("photo_kind", ["facade", "other"]);
+export const photoKind = app.enum("photo_kind", ["facade", "person", "id_card", "other"]);
 
 export const reconciliationRunStatus = app.enum("reconciliation_run_status", [
   "running",

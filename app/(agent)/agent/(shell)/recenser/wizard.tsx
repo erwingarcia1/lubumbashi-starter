@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { compressImage } from "@/lib/census/compress-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDateFr, formatFC } from "@/lib/i18n/format";
@@ -35,6 +36,7 @@ interface Preview {
 }
 interface Result {
   taxpayerNo: string;
+  entityId: string;
   obligations: Array<{ ruleCode: string; periodStart: string; dueDate: string; amountFc: number }>;
 }
 
@@ -93,6 +95,8 @@ export function CensusWizard({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [qr, setQr] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<{ person?: Blob; id_card?: Blob; facade?: Blob }>({});
+  const [photoStatus, setPhotoStatus] = useState<string | null>(null);
   const dupTimer = useRef<number | null>(null);
 
   // GPS from the start so step 1 can already warn about a neighbour with a similar name.
@@ -187,6 +191,51 @@ export function CensusWizard({
     }
     setResult(r.data);
     setStep(3);
+    void uploadPhotos(r.data.entityId);
+  }
+
+  /** Photos go straight to the private bucket through one-shot signed URLs; failures never block the record. */
+  async function uploadPhotos(entityId: string) {
+    const entries = Object.entries(photos).filter(([, blob]) => blob) as Array<
+      [keyof typeof photos, Blob]
+    >;
+    if (entries.length === 0) return;
+    let sent = 0;
+    for (const [kind, blob] of entries) {
+      const url = await api<{ storagePath: string; signedUrl: string }>(
+        "/api/v1/census/photos/upload-url",
+        { entityId, kind },
+      );
+      if (!url.ok) continue;
+      try {
+        const put = await fetch(url.data.signedUrl, {
+          method: "PUT",
+          headers: { "content-type": "image/jpeg" },
+          body: blob,
+        });
+        if (!put.ok) continue;
+        const reg = await api("/api/v1/census/photos", {
+          entityId,
+          kind,
+          storagePath: url.data.storagePath,
+          bytes: blob.size,
+        });
+        if (reg.ok) sent += 1;
+      } catch {
+        /* offline or storage down: the record stands, photos can be re-sent later (M8) */
+      }
+    }
+    setPhotoStatus(`${sent}/${entries.length}`);
+  }
+
+  async function onPickPhoto(kind: keyof typeof photos, file: File | undefined) {
+    if (!file) return;
+    try {
+      const blob = await compressImage(file);
+      setPhotos((p) => ({ ...p, [kind]: blob }));
+    } catch {
+      setPhotos((p) => ({ ...p, [kind]: file }));
+    }
   }
 
   return (
@@ -263,18 +312,25 @@ export function CensusWizard({
             <div className="flex flex-col gap-1">
               <Label>{R.photos}</Label>
               <div className="flex gap-2.5">
-                <div className="flex-1 rounded-md border border-[#D5CFCF] bg-white px-2 py-3 text-center text-[13px] opacity-60">
-                  📷
-                  <br />
-                  {R.photoPerson}
-                </div>
-                <div className="flex-1 rounded-md border border-[#D5CFCF] bg-white px-2 py-3 text-center text-[13px] opacity-60">
-                  🪪
-                  <br />
-                  {R.photoId}
-                </div>
+                {(["person", "id_card"] as const).map((kind) => (
+                  <label
+                    key={kind}
+                    className={`flex min-h-12 flex-1 cursor-pointer flex-col items-center justify-center rounded-md border px-2 py-3 text-center text-[13px] ${photos[kind] ? "border-ok bg-ok-soft" : "border-[#D5CFCF] bg-white"}`}
+                  >
+                    <span aria-hidden="true">{kind === "person" ? "📷" : "🪪"}</span>
+                    {kind === "person" ? R.photoPerson : R.photoId}
+                    {photos[kind] ? " ✓" : ""}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture={kind === "person" ? "user" : "environment"}
+                      className="sr-only"
+                      onChange={(e) => void onPickPhoto(kind, e.target.files?.[0])}
+                    />
+                  </label>
+                ))}
               </div>
-              <p className="text-[12px] text-[#5C5456]">{R.photosSoon}</p>
+              <p className="text-[12px] text-[#5C5456]">{R.photosNote}</p>
             </div>
             <div className="flex gap-2.5">
               <div className="flex flex-1 flex-col gap-1">
@@ -397,6 +453,22 @@ export function CensusWizard({
               />
             </div>
             <div className="flex flex-col gap-1">
+              <Label>{R.photoFacade}</Label>
+              <label
+                className={`flex min-h-12 cursor-pointer items-center justify-center rounded-md border px-2 py-3 text-[13px] ${photos.facade ? "border-ok bg-ok-soft" : "border-[#D5CFCF] bg-white"}`}
+              >
+                📷 {R.photoFacade}
+                {photos.facade ? " ✓" : ""}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="sr-only"
+                  onChange={(e) => void onPickPhoto("facade", e.target.files?.[0])}
+                />
+              </label>
+            </div>
+            <div className="flex flex-col gap-1">
               <Label>{R.gps}</Label>
               <div className="relative h-28 overflow-hidden rounded-lg bg-[#E8EFE9]">
                 <div className="absolute top-[55%] right-0 left-0 h-1.5 bg-white" />
@@ -475,6 +547,7 @@ export function CensusWizard({
                     : t.common.none,
                 ],
                 [R.smsQueued, phone.replace(/^(\+\d{5})\d+(\d{4})$/, "$1 ••• $2")],
+                [R.photosSent, photoStatus ?? (Object.keys(photos).length ? "…" : t.common.none)],
               ].map(([k, v]) => (
                 <div
                   key={k}

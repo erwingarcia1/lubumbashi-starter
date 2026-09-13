@@ -25,6 +25,7 @@ import * as s from "@/lib/db/schema";
 import { allocateReceiptNo } from "@/lib/identity/ids";
 import { DEFAULT_APPROVAL_POLICY } from "@/lib/identity/roles";
 import { RULE_VERSION_APPROVAL_KEY } from "@/lib/admin/settings";
+import { ensurePhotoBucket } from "@/lib/census/photos";
 import { businessClock, monthPeriodOf, yymm } from "@/lib/time";
 
 /** The demo date used by the prototype ("Sam. 13 sept. 2026"). */
@@ -1052,6 +1053,15 @@ export async function runSeed(db: Db): Promise<SeedSummary> {
 
   // --- Supabase Auth users for the admins (identity only; roles live in admin_users) ------
   created.push(...(await seedAuthUsers(db)));
+
+  // --- Storage bucket for census photos (private; signed upload URLs from the API) -----------
+  if (process.env.SUPABASE_SECRET_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    try {
+      await ensurePhotoBucket();
+    } catch (err) {
+      console.warn(`seed: photo bucket not created (${String(err)})`);
+    }
+  }
 
   const count = async (table: Parameters<typeof getTableName>[0]) => {
     const r = await db.execute<{ n: string }>(
