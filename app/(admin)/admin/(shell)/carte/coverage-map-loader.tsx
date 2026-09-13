@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 
 import type { MapPoint } from "@/lib/admin/map";
+import type { MapView } from "@/lib/admin/map-center";
 import { t } from "@/lib/i18n";
 
 /** Leaflet touches `window`: load it in the browser only. */
@@ -17,12 +18,8 @@ const CoverageMap = dynamic(() => import("./coverage-map").then((m) => m.Coverag
 
 export function CoverageMapLoader(props: {
   points: MapPoint[];
-  center: [number, number];
-  zoom: number;
+  view: MapView;
   maptilerKey: string | null;
-  labels: { paid: string; due: string; late: string; nv: string };
-  noKeyNote: string;
-  emptyNote: string;
 }) {
   return <CoverageMap {...props} />;
 }

@@ -734,6 +734,10 @@ export const fr = {
       noKey: "Fond de carte OpenStreetMap (clé MapTiler absente).",
       allCommunes: "Toutes les communes",
       empty: "Aucun contribuable recensé pour ces filtres.",
+      zoomIn: "Zoom avant",
+      zoomOut: "Zoom arrière",
+      attribution: "© Contributeurs OpenStreetMap",
+      attributionMaptiler: "© MapTiler · © Contributeurs OpenStreetMap",
     },
     agents: {
       title: "Agents de terrain",

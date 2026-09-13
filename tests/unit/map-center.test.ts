@@ -1,30 +1,49 @@
 import { describe, expect, it } from "vitest";
 
-import { CITY_CENTER, COMMUNE_CENTERS, mapView } from "@/lib/admin/map-center";
+import { CITY_CENTER, COMMUNE_CENTERS, POINTS_MAX_ZOOM, mapView } from "@/lib/admin/map-center";
 
 describe("mapView", () => {
-  it("centres on the points when there are any", () => {
+  it("frames every point when there are several (clusters in two communes stay visible)", () => {
     const v = mapView(
       [
         { lat: -11.66, lng: 27.49 },
         { lat: -11.67, lng: 27.5 },
+        { lat: -11.625, lng: 27.545 },
       ],
-      "KAM",
+      undefined,
     );
-    expect(v.center[0]).toBeCloseTo(-11.665, 6);
-    expect(v.center[1]).toBeCloseTo(27.495, 6);
-    expect(v.zoom).toBe(15);
+    expect(v).toEqual({
+      kind: "bounds",
+      bounds: [
+        [-11.67, 27.49],
+        [-11.625, 27.545],
+      ],
+    });
+  });
+
+  it("centres on the only point at the quartier zoom", () => {
+    expect(mapView([{ lat: -11.6642, lng: 27.493 }], "KAM")).toEqual({
+      kind: "center",
+      center: [-11.6642, 27.493],
+      zoom: POINTS_MAX_ZOOM,
+    });
   });
 
   it("falls back to the selected commune when it has no point yet", () => {
-    const v = mapView([], "RUA");
-    expect(v.center).toEqual([COMMUNE_CENTERS.RUA!.lat, COMMUNE_CENTERS.RUA!.lng]);
-    expect(v.zoom).toBe(COMMUNE_CENTERS.RUA!.zoom);
+    expect(mapView([], "RUA")).toEqual({
+      kind: "center",
+      center: [COMMUNE_CENTERS.RUA!.lat, COMMUNE_CENTERS.RUA!.lng],
+      zoom: COMMUNE_CENTERS.RUA!.zoom,
+    });
   });
 
   it("shows the whole city for 'toutes les communes' or an unknown code", () => {
-    expect(mapView([], undefined).center).toEqual([CITY_CENTER.lat, CITY_CENTER.lng]);
-    expect(mapView([], "XXX").zoom).toBe(CITY_CENTER.zoom);
+    expect(mapView([], undefined)).toEqual({
+      kind: "center",
+      center: [CITY_CENTER.lat, CITY_CENTER.lng],
+      zoom: CITY_CENTER.zoom,
+    });
+    expect(mapView([], "XXX")).toMatchObject({ zoom: CITY_CENTER.zoom });
   });
 
   it("knows the seven communes of Lubumbashi", () => {

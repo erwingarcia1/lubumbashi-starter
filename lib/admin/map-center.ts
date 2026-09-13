@@ -17,16 +17,35 @@ export const COMMUNE_CENTERS: Record<string, { lat: number; lng: number; zoom: n
 /** Whole-city view for "Toutes les communes" with no point. */
 export const CITY_CENTER = { lat: -11.664, lng: 27.49, zoom: 12 };
 
-/** Centre on the points when there are any, otherwise on the selected commune (or the city). */
+/** Closest the map goes when it frames the points (about the size of a quartier). */
+export const POINTS_MAX_ZOOM = 15;
+
+export type MapView =
+  | { kind: "center"; center: [number, number]; zoom: number }
+  | { kind: "bounds"; bounds: [[number, number], [number, number]] };
+
+/**
+ * Frame every point when there are several (so "Toutes les communes" shows all clusters), centre
+ * on the only point, otherwise on the selected commune (or the whole city).
+ */
 export function mapView(
   points: Array<{ lat: number; lng: number }>,
   communeCode?: string | null,
-): { center: [number, number]; zoom: number } {
-  if (points.length) {
-    const lat = points.reduce((s, p) => s + p.lat, 0) / points.length;
-    const lng = points.reduce((s, p) => s + p.lng, 0) / points.length;
-    return { center: [lat, lng], zoom: 15 };
+): MapView {
+  if (points.length > 1) {
+    const lats = points.map((p) => p.lat);
+    const lngs = points.map((p) => p.lng);
+    return {
+      kind: "bounds",
+      bounds: [
+        [Math.min(...lats), Math.min(...lngs)],
+        [Math.max(...lats), Math.max(...lngs)],
+      ],
+    };
+  }
+  if (points.length === 1) {
+    return { kind: "center", center: [points[0]!.lat, points[0]!.lng], zoom: POINTS_MAX_ZOOM };
   }
   const c = (communeCode && COMMUNE_CENTERS[communeCode]) || CITY_CENTER;
-  return { center: [c.lat, c.lng], zoom: c.zoom };
+  return { kind: "center", center: [c.lat, c.lng], zoom: c.zoom };
 }

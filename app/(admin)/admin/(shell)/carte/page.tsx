@@ -19,17 +19,23 @@ export default async function MapPage({
   const db = getDb();
   const pill =
     sp.statut === "paid" || sp.statut === "due" || sp.statut === "late" ? sp.statut : undefined;
-  // Default: the pilot commune. "" (Toutes les communes) removes the filter.
-  const communeCode = sp.commune === undefined ? "KAM" : sp.commune || undefined;
-  const [communes, agentRows, points] = await Promise.all([
+  const [communes, agentRows] = await Promise.all([
     db
       .select({ code: zones.code, name: zones.name })
       .from(zones)
       .where(eq(zones.level, "commune"))
       .orderBy(asc(zones.name)),
     db.select({ matricule: agents.matricule }).from(agents).orderBy(asc(agents.matricule)),
-    mapPoints(db, { communeCode, agentMatricule: sp.agent || undefined, pill }),
   ]);
+  // Default: the pilot commune. "" (Toutes les communes) or a code that no longer exists (stale
+  // bookmark, D24 recoding) removes the filter, so heading, select and map always agree.
+  const wanted = sp.commune === undefined ? "KAM" : sp.commune.trim().toUpperCase();
+  const communeCode = communes.some((c) => c.code === wanted) ? wanted : undefined;
+  const points = await mapPoints(db, {
+    communeCode,
+    agentMatricule: sp.agent || undefined,
+    pill,
+  });
   const M = t.admin.map;
   const communeName = communeCode
     ? (communes.find((c) => c.code === communeCode)?.name ?? communeCode)
@@ -47,7 +53,11 @@ export default async function MapPage({
         <h2 className="text-lg font-bold">
           {M.title} · {communeName}
         </h2>
-        <MapFilters className="ml-auto flex flex-wrap gap-1.5 text-[12px]">
+        {/* Keyed on the filters: a soft navigation (sidebar "Carte") must reset the uncontrolled selects. */}
+        <MapFilters
+          key={`${communeCode ?? ""}|${sp.statut ?? ""}|${sp.agent ?? ""}`}
+          className="ml-auto flex flex-wrap gap-1.5 text-[12px]"
+        >
           <select
             name="commune"
             defaultValue={communeCode ?? ""}
@@ -94,12 +104,8 @@ export default async function MapPage({
       </div>
       <CoverageMapLoader
         points={points}
-        center={view.center}
-        zoom={view.zoom}
+        view={view}
         maptilerKey={process.env.NEXT_PUBLIC_MAPTILER_KEY ?? null}
-        labels={M.legend}
-        noKeyNote={M.noKey}
-        emptyNote={M.empty}
       />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2.5">
         {[

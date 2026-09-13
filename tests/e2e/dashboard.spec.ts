@@ -74,6 +74,27 @@ test("the mayor's walkthrough: overview → alert → agents → revoke a device
   await page.getByLabel("Commune").selectOption("");
   await expect(page.getByRole("heading", { name: "Carte · Toutes les communes" })).toBeVisible();
   await expect(page.locator("path.leaflet-interactive").first()).toBeVisible();
+  // Leaflet's own English control titles are replaced (invariant 8).
+  await expect(page.getByRole("button", { name: "Zoom avant" })).toBeVisible();
+  await expect(page.getByText("Leaflet", { exact: true })).toHaveCount(0);
+  // A keyboard change (arrow keys fire `change` at every step on Windows/Linux) waits for Entrée.
+  const commune = page.getByLabel("Commune");
+  await commune.focus();
+  await commune.dispatchEvent("keydown", { key: "ArrowDown" });
+  await commune.selectOption("KAT");
+  await page.waitForTimeout(700);
+  await expect(page).not.toHaveURL(/commune=KAT/);
+  await commune.dispatchEvent("keydown", { key: "Enter" });
+  await expect(page).toHaveURL(/commune=KAT/);
+  await expect(page.getByRole("heading", { name: "Carte · Katuba" })).toBeVisible();
+  // The sidebar link is a soft navigation back to the default: the selects must follow.
+  await page.getByRole("link", { name: "Carte" }).click();
+  await expect(page.getByRole("heading", { name: "Carte · Kampemba" })).toBeVisible();
+  await expect(page.getByLabel("Commune")).toHaveValue("KAM");
+  // A stale or unknown commune code shows every commune instead of a contradictory screen.
+  await page.goto("/admin/carte?commune=XXX");
+  await expect(page.getByRole("heading", { name: "Carte · Toutes les communes" })).toBeVisible();
+  await expect(page.getByLabel("Commune")).toHaveValue("");
   await page.getByRole("link", { name: "Recettes" }).click();
   await expect(page.getByRole("heading", { name: "Recettes" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(/RCP-\d{4}-\d{6}/).first()).toBeVisible({ timeout: 15_000 });
