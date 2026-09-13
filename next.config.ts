@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
   // Heavy server-only libraries stay outside the bundle (receipt PDFs).
   serverExternalPackages: ["@react-pdf/renderer"],
+  // pdfkit loads its standard font metrics with a dynamic require that the standalone file
+  // tracer cannot follow; without this the PDF routes fail in Docker with "Cannot find module
+  // …/pdfkit/js/standard-fonts/Helvetica.cjs".
+  outputFileTracingIncludes: {
+    "/api/v1/receipts/[receiptNo]/pdf": ["./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/**"],
+    "/api/v1/admin/reports/[code]": ["./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/**"],
+  },
 };
 
 /**

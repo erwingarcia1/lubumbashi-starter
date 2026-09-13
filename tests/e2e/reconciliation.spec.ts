@@ -23,7 +23,8 @@ test("Finances reconciles the day, resolves the three exception types, closes th
   await expect(page.getByRole("heading", { name: /Rapprochement quotidien/ })).toBeVisible();
 
   await page.getByRole("button", { name: "Lancer le rapprochement" }).click();
-  await expect(page.getByText("Rapprochement terminé.")).toBeVisible();
+  // Three providers, chatty SQL: on a server whose database is in another region this takes ~10 s.
+  await expect(page.getByText("Rapprochement terminé.")).toBeVisible({ timeout: 60_000 });
 
   // Resolve until nothing is open, one row at a time (each action re-renders the page).
   const openRow = (type: RegExp) =>

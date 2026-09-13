@@ -14,6 +14,7 @@ import {
   runReconciliationAction,
 } from "../../_actions";
 import { Banner } from "../../_components/banner";
+import { PendingButton } from "../../_components/pending-button";
 import { Pill } from "../../_components/pill";
 import { ExceptionActions } from "./exception-actions";
 
@@ -92,12 +93,11 @@ export default async function ReconciliationPage({
           {canAct ? (
             <form action={runReconciliationAction}>
               <input type="hidden" name="day" value={day} />
-              <button
-                type="submit"
-                className="h-8 rounded-md bg-[#C1121F] px-3 text-[12.5px] font-semibold text-white"
-              >
-                {R.run}
-              </button>
+              <PendingButton
+                label={R.run}
+                pendingLabel={R.running}
+                className="h-8 rounded-md bg-[#C1121F] px-3 text-[12.5px] font-semibold text-white disabled:opacity-60"
+              />
             </form>
           ) : null}
         </div>
@@ -252,12 +252,11 @@ export default async function ReconciliationPage({
                 name="note"
                 className="h-9 rounded-md border border-[#D5CFCF] px-2 text-[13px]"
               />
-              <button
-                type="submit"
-                className="h-10 rounded-md bg-[#1E7F4F] px-3 text-[13px] font-semibold text-white"
-              >
-                {R.close}
-              </button>
+              <PendingButton
+                label={R.close}
+                pendingLabel={R.closing}
+                className="h-10 rounded-md bg-[#1E7F4F] px-3 text-[13px] font-semibold text-white disabled:opacity-60"
+              />
             </form>
           ) : (
             <p className="mt-2 text-[12.5px] text-[#5C5456]">
