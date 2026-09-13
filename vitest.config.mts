@@ -12,7 +12,10 @@ export default defineConfig({
       include: ["lib/**"],
       exclude: ["lib/**/*.test.ts", "lib/db/schema/**"],
       reporter: ["text", "html"],
-      // M2 and M5 add 100 % thresholds for lib/tax-engine and lib/payments (CLAUDE.md).
+      // CLAUDE.md: the tax engine (and, from M5, the payment state machine) must be 100 % covered.
+      thresholds: {
+        "lib/tax-engine/**": { lines: 100, functions: 100, branches: 100, statements: 100 },
+      },
     },
     projects: [
       {

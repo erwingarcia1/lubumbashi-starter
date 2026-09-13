@@ -2,7 +2,7 @@
   "name": "lubumbashi-tax",
   "version": "0.0.0",
   "private": true,
-  "description": "Plateforme de recouvrement — Ville de Lubumbashi",
+  "description": "Plateforme de recouvrement \u2014 Ville de Lubumbashi",
   "packageManager": "pnpm@12.4.1",
   "engines": {
     "node": ">=24"
@@ -23,7 +23,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:roles": "tsx scripts/db-roles.ts",
     "test:unit": "vitest run --project unit",
-    "test:integration": "vitest run --project integration"
+    "test:integration": "vitest run --project integration",
+    "demo:obligations": "tsx scripts/print-obligations.ts"
   },
   "dependencies": {
     "@next/env": "16.3.5",
