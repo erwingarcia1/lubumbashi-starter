@@ -22,6 +22,7 @@ import {
   resolveManually,
 } from "@/lib/reconciliation/actions";
 import { reconcileDay } from "@/lib/reconciliation/run";
+import { clientKey, limits } from "@/lib/security/rate-limit";
 import { createSupabaseServerClient } from "@/lib/identity/supabase";
 
 async function requestContext() {
@@ -48,9 +49,14 @@ export async function signInAction(formData: FormData) {
   const email = str(formData, "email").toLowerCase();
   const password = String(formData.get("password") ?? "");
   const next = str(formData, "next");
+  // Failed attempts are rate-limited per IP; a successful login clears the counter.
+  const key = clientKey((await requestContext()).ip);
+  const verdict = limits.adminLogin.check(key);
+  if (!verdict.ok) redirect("/admin/login?error=rate");
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) redirect("/admin/login?error=1");
+  limits.adminLogin.reset(key);
   redirect((next.startsWith("/admin") ? next : "/admin") as Route);
 }
 

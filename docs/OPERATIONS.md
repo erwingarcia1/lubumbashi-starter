@@ -42,6 +42,12 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://$APP_DOMAIN/api/cro
 
 Liens portail : le SMS de bienvenue contient `https://<domaine>/t/<jeton>` (valable 30 jours, ouvre une session de 12 h). `pnpm db:seed` imprime un lien de démonstration stable par contribuable de test. Depuis l'autocollant de porte (`/q/<identifiant>`), « Recevoir mon lien par SMS » renvoie un nouveau lien au numéro enregistré (un par 10 minutes).
 
+## Sécurité (M10)
+
+- Limitation de débit en mémoire (`lib/security/rate-limit.ts`) : connexion agent 20 échecs / 15 min par IP (en plus du verrouillage du compte après 5 échecs), connexion Mairie 10 échecs / 15 min par IP (une connexion réussie remet le compteur à zéro), demandes de paiement 30 / min par agent, portail 10 paiements / min et 5 liens / 10 min par IP. Réponse `429 too_many_requests`. Un seul conteneur `web` (D23) : un stockage partagé remplacera la mémoire si une seconde instance apparaît.
+- Sessions : agent 12 h (cookie signé HMAC, appareil re-vérifié à chaque requête, révocation immédiate), Mairie via Supabase Auth (jeton d'accès 1 h renouvelé par `proxy.ts`), portail 12 h à partir d'un lien signé valable 30 jours et révocable.
+- Journal d'audit en ajout seul, y compris pour le rôle propriétaire (déclencheur base de données) ; chaque export de rapport est lui-même journalisé.
+
 ## Tâches planifiées (rapprochement, pénalités, SMS)
 
 Un seul processus, `pnpm worker` (`scripts/worker.ts`, pg-boss, schéma `pgboss` créé par la migration 0009), planifie en heure de Lubumbashi :
@@ -68,4 +74,29 @@ Colima fait tourner Docker dans une VM dont le disque (20 Gio) est un fichier cr
 
 ## Sauvegarde et restauration
 
-À écrire en M10 (exercice de restauration documenté). Jusque-là : sauvegardes automatiques du projet Supabase hébergé.
+Deux niveaux : les sauvegardes automatiques du projet Supabase (quotidiennes, PITR en option) et une
+sauvegarde logique nocturne faite par la VM, hors du compte Supabase, vers S3 : `deploy/backup.sh`
+(`pg_dump --format=custom` des schémas `app`, `util`, `pgboss`). Cron sur la VM :
+
+```
+15 1 * * * cd /opt/lubumbashi-tax && DATABASE_URL_MIGRATIONS=... BACKUP_BUCKET=s3://... ./deploy/backup.sh >> /var/log/lubumbashi-backup.log 2>&1
+```
+
+Exercice de restauration (fait le 2026-09-13 sur la base locale, 24 Mo : 40 contribuables,
+22 paiements, 19 reçus, 175 lignes d'audit ; dump + restauration en moins de 2 secondes) :
+
+```bash
+aws s3 cp s3://<bucket>/lubumbashi-<date>.dump /tmp/restore.dump
+createdb -h <hôte> -U postgres restore_drill
+psql -h <hôte> -U postgres -d restore_drill -c "create schema if not exists extensions; create extension if not exists postgis schema extensions; create extension if not exists pg_trgm schema extensions;"
+pg_restore -h <hôte> -U postgres --dbname=restore_drill --no-owner --no-privileges /tmp/restore.dump
+psql -h <hôte> -U postgres -d restore_drill -c "select count(*) from app.taxpayers; select count(*) from app.receipts; select max(created_at) from app.audit_log;"
+```
+
+Les compteurs (`id_counters`, `receipt_counters`, `invoice_counters`) font partie du dump : les
+numéros continuent sans trou après restauration. Pour restaurer en production : arrêter `web` et
+`worker`, restaurer dans une base neuve, pointer `DATABASE_URL` dessus, relancer `pnpm db:migrate`
+(recrée les rôles et grants), redémarrer. Les utilisateurs Auth (schéma `auth`) sont restaurés par
+Supabase, pas par ce dump ; les photos sont dans le bucket Storage (sauvegardé par Supabase).
+
+À refaire à chaque trimestre et avant toute migration importante ; noter la date et la durée ici.

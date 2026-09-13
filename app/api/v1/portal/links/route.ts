@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db/client";
 import { notifications, portalLinks, taxpayers } from "@/lib/db/schema";
 import { flushNotificationsSoon } from "@/lib/notify/flush";
 import { issuePortalLink } from "@/lib/portal/links";
+import { clientKey, limits } from "@/lib/security/rate-limit";
 
 const body = z.strictObject({ taxpayerNo: z.string().regex(/^LUB-[A-Z]{3}-\d{8}$/) });
 const COOLDOWN_MINUTES = 10;
@@ -16,6 +17,9 @@ const COOLDOWN_MINUTES = 10;
  * phone on file, never to the requester. One request per taxpayer per 10 minutes.
  */
 export async function POST(request: Request) {
+  const verdict = limits.portalLinks.check(clientKey(requestContext(request).ip));
+  if (!verdict.ok)
+    return fail("too_many_requests", 429, { retryAfterSeconds: verdict.retryAfterSeconds });
   const parsed = await parseBody(request, body);
   if ("error" in parsed) return parsed.error;
   const db = getDb();

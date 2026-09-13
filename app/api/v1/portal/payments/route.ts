@@ -6,6 +6,7 @@ import { PaymentConfigError } from "@/lib/payments/registry";
 import { PaymentError, initiatePayment } from "@/lib/payments/service";
 import { findInvoice } from "@/lib/portal/invoice";
 import { getPortalTaxpayer } from "@/lib/portal/session";
+import { clientKey, limits } from "@/lib/security/rate-limit";
 
 const body = z.strictObject({
   channel: z.enum(["mpesa", "airtel", "orange", "tpe"]),
@@ -16,6 +17,9 @@ const body = z.strictObject({
 
 /** Portal surface: the taxpayer initiates; the provider confirms (invariants 1, 2, 5). */
 export async function POST(request: Request) {
+  const verdict = limits.portalPayments.check(clientKey(requestContext(request).ip));
+  if (!verdict.ok)
+    return fail("too_many_requests", 429, { retryAfterSeconds: verdict.retryAfterSeconds });
   const parsed = await parseBody(request, body);
   if ("error" in parsed) return parsed.error;
   const { channel, invoice } = parsed.data;

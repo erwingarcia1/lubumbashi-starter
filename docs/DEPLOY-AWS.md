@@ -52,11 +52,15 @@ Supabase est auto-hébergeable, donc un rapatriement sur un serveur local reste 
    docker compose --profile worker up -d worker
    ```
    Caddy obtient le certificat au premier accès ; vérifier `https://<domaine>/` puis `/admin/login`.
-5. **Premier administrateur** : `docker compose run --rm migrate pnpm tsx scripts/create-admin.ts`
-   (à écrire en M10 ; en attendant, créer l'utilisateur dans Supabase *Authentication* et la ligne
-   `app.admin_users` avec le rôle `administrateur`). Ne jamais lancer `pnpm db:seed` en production.
-6. **Sauvegarde** : cron quotidien `pg_dump` vers S3 (commande dans `docs/OPERATIONS.md`) et un
-   exercice de restauration avant la mise en service.
+5. **Premier administrateur** :
+   ```bash
+   docker compose --profile migrate run --rm migrate pnpm admin:create --email admin@lubumbashi.cd --name "Nom Prénom" --role administrateur
+   ```
+   Le mot de passe temporaire s'affiche une fois ; les autres comptes se créent de la même façon
+   (`--role maire|finances|superviseur|auditeur`). Ne jamais lancer `pnpm db:seed` en production.
+6. **Sauvegarde** : cron quotidien `deploy/backup.sh` (`pg_dump` vers S3, variables
+   `DATABASE_URL_MIGRATIONS` et `BACKUP_BUCKET`) et l'exercice de restauration de
+   `docs/OPERATIONS.md` avant la mise en service.
 7. **Terminaux Android** : ouvrir `https://<domaine>/agent/login` dans Chrome, « Ajouter à l'écran
    d'accueil » ; le service worker met l'application en cache pour le hors ligne.
 

@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db/client";
 import { getAgentSession } from "@/lib/identity/agent-session";
 import { PaymentConfigError } from "@/lib/payments/registry";
 import { PaymentError, initiateInput, initiatePayment } from "@/lib/payments/service";
+import { limits } from "@/lib/security/rate-limit";
 import { z } from "zod";
 
 const body = initiateInput.extend({
@@ -13,6 +14,9 @@ const body = initiateInput.extend({
 export async function POST(request: Request) {
   const session = await getAgentSession();
   if (!session) return fail("unauthenticated", 401);
+  const verdict = limits.agentPayments.check(session.agentId);
+  if (!verdict.ok)
+    return fail("too_many_requests", 429, { retryAfterSeconds: verdict.retryAfterSeconds });
   const parsed = await parseBody(request, body);
   if ("error" in parsed) return parsed.error;
   try {

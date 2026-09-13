@@ -41,7 +41,11 @@ export default async function LoginPage({
             required
           />
         </div>
-        {error ? <p className="text-bad text-[12.5px]">{t.admin.login.error}</p> : null}
+        {error ? (
+          <p className="text-bad text-[12.5px]">
+            {error === "rate" ? t.admin.login.rateLimited : t.admin.login.error}
+          </p>
+        ) : null}
         <Button type="submit">{t.admin.login.submit}</Button>
         <p className="text-[11.5px] text-[#5C5456]">{t.admin.login.noAccount}</p>
       </form>
