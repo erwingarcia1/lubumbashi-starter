@@ -28,6 +28,24 @@ Mise à jour : `git pull && docker compose --profile ops run --rm migrate && doc
 
 Notes : sur Supabase hébergé, le rôle `app_login` se connecte par l'URL directe (ou via le pooler sous le nom `app_login.<ref>`) ; les clés *secret* et `APP_DB_PASSWORD` ne quittent jamais `.env.production`. Le service `worker` (pg-boss) est activé à partir de M5/M9 (`--profile worker`).
 
+## Notifications (SMS)
+
+Les SMS partent d'une file (`app.notifications`). Le fournisseur est choisi par `SMS_PROVIDER` (`console` imprime le message dans les logs ; les vrais fournisseurs attendent D11). Trois façons de vider la file, à combiner librement :
+
+1. Après chaque confirmation de paiement ou recensement, l'application envoie ce qui est en attente juste après la réponse HTTP (`lib/notify/flush.ts`). Suffisant pour la démo.
+2. Un worker permanent : `pnpm notify:worker` en local, ou `docker compose --profile worker up -d worker` sur la VM (toutes les 5 s, `NOTIFY_INTERVAL_MS`).
+3. Un cron externe qui appelle l'API avec le secret `CRON_SECRET` :
+
+```bash
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://$APP_DOMAIN/api/cron/notifications
+```
+
+Liens portail : le SMS de bienvenue contient `https://<domaine>/t/<jeton>` (valable 30 jours, ouvre une session de 12 h). `pnpm db:seed` imprime un lien de démonstration stable par contribuable de test. Depuis l'autocollant de porte (`/q/<identifiant>`), « Recevoir mon lien par SMS » renvoie un nouveau lien au numéro enregistré (un par 10 minutes).
+
+## Espace disque du poste de développement
+
+Colima fait tourner Docker dans une VM dont le disque (20 Gio) est un fichier creux sur le Mac : si le Mac est plein, la VM subit des erreurs d'entrée/sortie et Supabase s'arrête. Garder au moins 10 Gio libres ; `docker builder prune -af` puis `colima ssh -- sudo fstrim -av` rendent l'espace au Mac.
+
 ## Sauvegarde et restauration
 
 À écrire en M10 (exercice de restauration documenté). Jusque-là : sauvegardes automatiques du projet Supabase hébergé.

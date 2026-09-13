@@ -1,5 +1,15 @@
 import { sql } from "drizzle-orm";
-import { check, date, index, integer, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  check,
+  date,
+  index,
+  integer,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { app, obligationStatus } from "./enums";
 import { admins } from "./identity";
@@ -34,6 +44,12 @@ export const obligations = app.table(
     penaltyFc: integer("penalty_fc").notNull().default(0),
     paidFc: integer("paid_fc").notNull().default(0),
     status: obligationStatus("status").notNull().default("due"),
+    /**
+     * Avis d'imposition number `AV-YYMM-NNNNNN` (YYMM of the period start) and the random token
+     * of its QR (`/f/<no>/<token>`); both assigned by the database trigger on insert (0008).
+     */
+    invoiceNo: text("invoice_no"),
+    invoiceToken: text("invoice_token"),
     waivedReason: text("waived_reason"),
     waivedByAdminId: uuid("waived_by_admin_id").references(() => admins.id),
     cancelledReason: text("cancelled_reason"),
@@ -45,9 +61,16 @@ export const obligations = app.table(
     unique("obligations_entity_rule_period_uniq").on(t.entityId, t.taxRuleId, t.periodStart),
     index("obligations_taxpayer_status_idx").on(t.taxpayerId, t.status),
     index("obligations_due_date_idx").on(t.dueDate),
+    uniqueIndex("obligations_invoice_no_uniq").on(t.invoiceNo),
     check("obligations_amount_nonneg", sql`${t.amountFc} >= 0`),
     check("obligations_penalty_nonneg", sql`${t.penaltyFc} >= 0`),
     check("obligations_paid_nonneg", sql`${t.paidFc} >= 0`),
     check("obligations_period_order", sql`${t.periodStart} <= ${t.periodEnd}`),
   ],
 );
+
+/** Gapless counter behind invoice numbers, one row per YYMM. */
+export const invoiceCounters = app.table("invoice_counters", {
+  yymm: text("yymm").primaryKey(),
+  last: integer("last").notNull().default(0),
+});

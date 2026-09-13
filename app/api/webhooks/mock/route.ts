@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { fail, ok, parseBody } from "@/lib/api/respond";
 import { getDb } from "@/lib/db/client";
+import { flushNotificationsSoon } from "@/lib/notify/flush";
 import { applyProviderResult, PaymentError } from "@/lib/payments/service";
 
 const callback = z.object({
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
             { status: "failed", failureReason: c.failureReason ?? "Refusé", raw: c },
             "callback",
           );
+    if (result.applied && result.status === "confirmed") flushNotificationsSoon();
     return ok(result);
   } catch (err) {
     if (err instanceof PaymentError)

@@ -26,6 +26,7 @@ import { allocateReceiptNo } from "@/lib/identity/ids";
 import { DEFAULT_APPROVAL_POLICY } from "@/lib/identity/roles";
 import { RULE_VERSION_APPROVAL_KEY } from "@/lib/admin/settings";
 import { ensurePhotoBucket } from "@/lib/census/photos";
+import { issuePortalLink } from "@/lib/portal/links";
 import { businessClock, monthPeriodOf, yymm } from "@/lib/time";
 
 /** The demo date used by the prototype ("Sam. 13 sept. 2026"). */
@@ -420,6 +421,8 @@ export interface SeedSummary {
   receipts: number;
   auditRows: number;
   created: string[];
+  /** Demo portal links (deterministic tokens; the seed never runs in production). */
+  portalLinks: Array<{ taxpayerNo: string; url: string }>;
 }
 
 /**
@@ -475,6 +478,7 @@ export async function runSeed(db: Db): Promise<SeedSummary> {
     );
   }
   const created: string[] = [];
+  const portalLinks: Array<{ taxpayerNo: string; url: string }> = [];
   const pinHash = await hash(DEMO_PIN);
 
   await db.transaction(async (tx) => {
@@ -1044,6 +1048,25 @@ export async function runSeed(db: Db): Promise<SeedSummary> {
       created.push("complaint LUB-KAM-00000125");
     }
 
+    // --- demo portal links: one stable signed link per seeded taxpayer (screen p-home) --------
+    // The token is derived from the taxpayer number and AGENT_SESSION_SECRET so `pnpm db:seed`
+    // prints the same URL every run; only its hash is stored, like every portal link.
+    for (const [no, id] of taxpayerId) {
+      const token = createHash("sha256")
+        .update(`portal-demo:${no}:${process.env.AGENT_SESSION_SECRET ?? ""}`)
+        .digest("base64url")
+        .slice(0, 32);
+      const link = await issuePortalLink(
+        tx,
+        id,
+        new Date("2026-09-13T08:00:00+02:00"),
+        3650,
+        "seed",
+        token,
+      );
+      portalLinks.push({ taxpayerNo: no, url: link.url });
+    }
+
     // --- settings: who may approve a tax rule version (D29 placeholder) --------------------
     await tx
       .insert(s.settings)
@@ -1082,6 +1105,7 @@ export async function runSeed(db: Db): Promise<SeedSummary> {
     receipts: await count(s.receipts),
     auditRows: await count(s.auditLog),
     created,
+    portalLinks,
   };
 }
 
@@ -1095,9 +1119,11 @@ if (isMain) {
   }
   const db = createDb(url);
   runSeed(db)
-    .then(({ created, ...counts }) => {
+    .then(({ created, portalLinks, ...counts }) => {
       console.log(`seed: ${created.length} new rows this run`);
       console.table(counts);
+      console.log("seed: portal demo links (open on a phone, screen p-home):");
+      for (const l of portalLinks) console.log(`  ${l.taxpayerNo}  ${l.url}`);
     })
     .catch((err) => {
       console.error(String(err));

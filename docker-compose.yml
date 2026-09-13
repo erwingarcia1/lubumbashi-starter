@@ -44,14 +44,14 @@ services:
       APP_ENV: ${APP_ENV:-demo}
     command: sh -c "pnpm db:migrate && ${SEED_ON_DEPLOY:+pnpm db:seed}"
 
-  # pg-boss worker (reconciliation, penalties, notifications) arrives with M5/M9.
+  # Outbox worker: sends queued SMS (M7). pg-boss (reconciliation, penalties) takes over in M9.
   worker:
     profiles: ["worker"]
     build:
       context: .
       target: ops
     env_file: .env.production
-    command: pnpm tsx scripts/worker.ts
+    command: pnpm notify:worker
     restart: unless-stopped
 
 volumes:

@@ -16,6 +16,7 @@ import {
 } from "@/lib/db/schema";
 import type { AgentSession } from "@/lib/identity/agent-session";
 import { allocateTaxpayerId } from "@/lib/identity/ids";
+import { issuePortalLink } from "@/lib/portal/links";
 import { computeObligations, type Rule } from "@/lib/tax-engine";
 
 import { censusInput, type CensusInput } from "./schema";
@@ -198,13 +199,15 @@ export async function registerTaxpayer(
         amountFc: d.amountFc,
       });
     }
+    // The welcome SMS carries the household's signed portal link (link-based access, no password).
+    const link = await issuePortalLink(tx, tp!.id, now);
     await tx.insert(notifications).values({
       taxpayerId: tp!.id,
       kind: "registration",
       channel: "sms",
       to: input.taxpayer.phone,
       templateKey: "registration",
-      payload: { taxpayerNo, fullName: input.taxpayer.fullName },
+      payload: { taxpayerNo, fullName: input.taxpayer.fullName, portalUrl: link.url },
     });
     await writeAudit(tx, {
       actor: { type: "agent", id: session.agentId, role: "agent", label: session.matricule },
