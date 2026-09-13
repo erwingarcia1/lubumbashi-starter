@@ -7,6 +7,8 @@ import { redirect } from "next/navigation";
 import { ZodError } from "zod";
 
 import { createAgent, resetAgentPin, revokeDevice } from "@/lib/admin/agents";
+import { createAdminUser, setAdminActive, setAdminRole } from "@/lib/admin/users";
+import type { AdminRole } from "@/lib/identity/roles";
 import { AdminError, type AdminErrorCode } from "@/lib/admin/errors";
 import { approveRuleVersion, proposeRuleVersion } from "@/lib/admin/taxes";
 import { changeEntityCategory, updateTaxpayerContact } from "@/lib/admin/taxpayers";
@@ -306,4 +308,69 @@ export async function resetAgentPinAction(formData: FormData) {
   }
   revalidatePath("/admin/agents");
   redirect(error ? `/admin/agents?error=${error}` : "/admin/agents?ok=pin");
+}
+
+// --- Mairie users (Réglages) ----------------------------------------------------------------
+
+export type CreateUserState =
+  | { status: "idle" }
+  | { status: "created"; email: string; temporaryPassword: string }
+  | { status: "error"; code: AdminErrorCode };
+
+/** Returns the temporary password to the form (never through a redirect URL or a log). */
+export async function createAdminUserAction(
+  _state: CreateUserState,
+  formData: FormData,
+): Promise<CreateUserState> {
+  const session = await requireAdmin();
+  try {
+    const r = await createAdminUser(
+      getDb(),
+      session,
+      {
+        email: str(formData, "email"),
+        fullName: str(formData, "fullName"),
+        role: str(formData, "role") as AdminRole,
+      },
+      await requestContext(),
+    );
+    revalidatePath("/admin/reglages");
+    return { status: "created", email: r.email, temporaryPassword: r.temporaryPassword };
+  } catch (err) {
+    return { status: "error", code: codeOf(err) };
+  }
+}
+
+export async function setAdminRoleAction(formData: FormData) {
+  const session = await requireAdmin();
+  let error: AdminErrorCode | undefined;
+  try {
+    await setAdminRole(
+      getDb(),
+      session,
+      { adminId: str(formData, "adminId"), role: str(formData, "role") as AdminRole },
+      await requestContext(),
+    );
+  } catch (err) {
+    error = codeOf(err);
+  }
+  revalidatePath("/admin/reglages");
+  redirect(error ? `/admin/reglages?error=${error}` : "/admin/reglages?ok=role");
+}
+
+export async function setAdminActiveAction(formData: FormData) {
+  const session = await requireAdmin();
+  let error: AdminErrorCode | undefined;
+  try {
+    await setAdminActive(
+      getDb(),
+      session,
+      { adminId: str(formData, "adminId"), active: str(formData, "active") === "1" },
+      await requestContext(),
+    );
+  } catch (err) {
+    error = codeOf(err);
+  }
+  revalidatePath("/admin/reglages");
+  redirect(error ? `/admin/reglages?error=${error}` : "/admin/reglages?ok=active");
 }

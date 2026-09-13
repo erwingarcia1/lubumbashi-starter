@@ -4,9 +4,13 @@ import type { Db } from "@/lib/db/client";
 
 import { collectionRate } from "./stats";
 
+export type CollectionGroup = "day" | "week" | "month" | "year";
+
 export interface CollectionFilters {
   from: string; // YYYY-MM-DD business dates, inclusive
   to: string;
+  /** Period grouping of the "Par période" table (day by default). */
+  groupBy?: CollectionGroup;
   communeCode?: string;
   taxCode?: string;
   channel?: string;
@@ -71,6 +75,23 @@ export async function collectionsReport(db: Db, f: CollectionFilters) {
     collectedFc: Number(r.collected),
     rate: collectionRate(Number(r.collected), Number(r.issued)),
   }));
+  // Confirmed collections grouped by business period (day / week / month / year), same filters.
+  const unit = f.groupBy ?? "day";
+  const byPeriod = (
+    await db.execute<{ period: string; count: number; amount: number }>(sql`
+      select to_char(date_trunc(${unit}, p.business_date::timestamp), 'YYYY-MM-DD') as period,
+             count(*)::int as count, coalesce(sum(p.amount_fc), 0)::int as amount
+      from app.payments p
+      join app.taxpayers t on t.id = p.taxpayer_id join app.zones z on z.id = t.commune_id
+      left join app.agents ag on ag.id = p.initiated_by_agent_id
+      where p.status = 'confirmed'
+        and p.business_date between ${f.from}::date and ${f.to}::date
+        and (${commune}::text is null or z.code = ${commune})
+        and (${channel}::text is null or p.channel::text = ${channel})
+        and (${agent}::text is null or ag.matricule = ${agent})
+        and (${tax}::text is null or exists (select 1 from app.payment_allocations a join app.obligations o on o.id = a.obligation_id join app.tax_rules r on r.id = o.tax_rule_id where a.payment_id = p.id and r.tax_code = ${tax}))
+      group by 1 order by 1 desc`)
+  ).rows.map((r) => ({ period: r.period, count: Number(r.count), amountFc: Number(r.amount) }));
   const rows = (
     await db.execute<{
       at: Date;
@@ -112,5 +133,5 @@ export async function collectionsReport(db: Db, f: CollectionFilters) {
     amountFc: Number(r.amount),
     status: r.status,
   }));
-  return { byCommune, byTax, rows };
+  return { byCommune, byTax, byPeriod, groupBy: unit, rows };
 }

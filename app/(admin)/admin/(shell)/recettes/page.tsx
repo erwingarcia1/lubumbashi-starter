@@ -1,9 +1,9 @@
 import { asc, eq } from "drizzle-orm";
 
-import { collectionsReport } from "@/lib/admin/collections";
+import { collectionsReport, type CollectionGroup } from "@/lib/admin/collections";
 import { getDb } from "@/lib/db/client";
 import { agents, taxRules, zones } from "@/lib/db/schema";
-import { formatDateTimeFr, formatFC } from "@/lib/i18n/format";
+import { formatDateFr, formatDateTimeFr, formatFC, formatMonthFr } from "@/lib/i18n/format";
 import { t } from "@/lib/i18n";
 import { availableChannels } from "@/lib/payments/registry";
 import { businessDate, requestNow } from "@/lib/time";
@@ -21,12 +21,18 @@ export default async function CollectionsPage({
     taxe?: string;
     canal?: string;
     agent?: string;
+    groupe?: string;
   }>;
 }) {
   const sp = await searchParams;
   const today = businessDate(requestNow());
   const from = sp.du && /^\d{4}-\d{2}-\d{2}$/.test(sp.du) ? sp.du : `${today.slice(0, 7)}-01`;
   const to = sp.au && /^\d{4}-\d{2}-\d{2}$/.test(sp.au) ? sp.au : today;
+  const groupBy: CollectionGroup = (["day", "week", "month", "year"] as const).includes(
+    sp.groupe as CollectionGroup,
+  )
+    ? (sp.groupe as CollectionGroup)
+    : "day";
   const db = getDb();
   const [communes, taxes, agentRows, report] = await Promise.all([
     db
@@ -43,6 +49,7 @@ export default async function CollectionsPage({
       taxCode: sp.taxe || undefined,
       channel: sp.canal || undefined,
       agentMatricule: sp.agent || undefined,
+      groupBy,
     }),
   ]);
   const C = t.admin.collections;
@@ -98,19 +105,79 @@ export default async function CollectionsPage({
               </option>
             ))}
           </select>
+          <select name="groupe" defaultValue={groupBy} className={sel} aria-label={C.groupBy}>
+            {(["day", "week", "month", "year"] as const).map((g) => (
+              <option key={g} value={g}>
+                {C.groupBy} : {C.groups[g]}
+              </option>
+            ))}
+          </select>
           <button
             type="submit"
             className="h-8 rounded-md border border-[#D5CFCF] bg-white px-3 font-semibold"
           >
             {C.apply}
           </button>
-          <span
-            className="h-8 rounded-md border border-[#D5CFCF] bg-white px-3 leading-8 text-[#8E8688]"
-            title={C.exportSoon}
+          <a
+            href={`/api/v1/admin/reports/monthly?format=xlsx&month=${from.slice(0, 7)}`}
+            className="h-8 rounded-md border border-[#D5CFCF] bg-white px-3 leading-8 font-semibold"
           >
             {C.exportExcel}
-          </span>
+          </a>
         </form>
+      </div>
+      <div className="rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3">
+        <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
+          {C.byPeriod} · {C.groups[groupBy]}
+        </p>
+        <table className="mt-1 w-full text-[12.5px]">
+          <thead>
+            <tr className="text-left text-[10.5px] tracking-wider text-[#5C5456] uppercase">
+              <th className="border-b border-[#D5CFCF] px-2 py-1.5">{C.columns.period}</th>
+              <th className="border-b border-[#D5CFCF] px-2 py-1.5 text-right">
+                {C.columns.count}
+              </th>
+              <th className="border-b border-[#D5CFCF] px-2 py-1.5 text-right">
+                {C.columns.collected}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.byPeriod.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="px-2 py-2 text-[#5C5456]">
+                  {t.common.none}
+                </td>
+              </tr>
+            ) : null}
+            {report.byPeriod.map((r) => (
+              <tr key={r.period} className="border-b border-[#EFEAEA]">
+                <td className="px-2 py-1.5">
+                  {groupBy === "year"
+                    ? r.period.slice(0, 4)
+                    : groupBy === "month"
+                      ? formatMonthFr(r.period)
+                      : groupBy === "week"
+                        ? `${C.weekOf} ${formatDateFr(r.period)}`
+                        : formatDateFr(r.period)}
+                </td>
+                <td className="px-2 py-1.5 text-right font-mono">{r.count}</td>
+                <td className="px-2 py-1.5 text-right font-mono">{formatFC(r.amountFc)}</td>
+              </tr>
+            ))}
+            {report.byPeriod.length > 0 ? (
+              <tr className="font-semibold">
+                <td className="px-2 py-1.5">{t.common.all}</td>
+                <td className="px-2 py-1.5 text-right font-mono">
+                  {report.byPeriod.reduce((a, r) => a + r.count, 0)}
+                </td>
+                <td className="px-2 py-1.5 text-right font-mono">
+                  {formatFC(report.byPeriod.reduce((a, r) => a + r.amountFc, 0))}
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
       </div>
       <div className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
         <div className="rounded-lg border border-[#E3DEDE] bg-white p-3.5">

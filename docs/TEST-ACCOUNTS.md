@@ -18,6 +18,9 @@ Jamais utilisés en production : le seed refuse de s'exécuter quand `APP_ENV=pr
 | ilunga.m@lubumbashi.cd | Superviseur (contribuables, agents) | `Lubumbashi2026!` |
 | auditeur@lubumbashi.cd | Auditeur (lecture, journal) | `Lubumbashi2026!` |
 
+D'autres comptes Mairie se créent dans Réglages (rôle Administrateur) : le mot de passe temporaire
+s'affiche une fois à la création.
+
 ## Application agent — http://localhost:3000/agent/login
 
 | Matricule | PIN | Zone |

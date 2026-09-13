@@ -26,6 +26,7 @@ const NAV: NavItem[] = [
   { key: "taxes", label: t.admin.nav.taxes, href: "/admin/taxes", live: true },
   { key: "audit", label: t.admin.nav.audit, href: "/admin/audit", live: true },
   { key: "reports", label: t.admin.nav.reports, href: "/admin/rapports", live: true },
+  { key: "settings", label: t.admin.nav.settings, href: "/admin/reglages", live: true },
 ];
 
 export default async function ShellLayout({ children }: { children: ReactNode }) {

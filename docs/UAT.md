@@ -43,6 +43,8 @@ l'écran d'accueil ». Autoriser la caméra et la position quand Chrome le deman
 7. **Rapprochement** : `ngoy.k@` → journée du jour → « Lancer le rapprochement » → trois types d'écart par canal (absent du relevé, doublon, hors plateforme) → Re-interroger / Demander l'annulation / Rattacher à un contribuable → « Clôturer la journée » → historique.
 8. **Journal d'audit** : `auditeur@` retrouve chaque action ci-dessus (qui, quoi, quand, où, appareil) ; filtre par action ; export CSV.
 9. **Rapports** : rapport mensuel (PDF et Excel), état des impayés, performance des agents, rapprochement du jour, liste des reçus.
+10. **Réglages** (`admin@` seulement) : créer un utilisateur Mairie (adresse, nom, rôle) → le mot de passe temporaire s'affiche une fois ; se connecter avec ; changer un rôle ; désactiver puis réactiver un compte.
+11. **Recettes** : « Regrouper par » semaine, mois ou année → tableau « Encaissé par période » ; bouton Excel → rapport mensuel.
 
 ### D. Ce qui est volontairement impossible (à vérifier aussi)
 - Un agent ne peut ni marquer un paiement comme reçu ni modifier un montant.
