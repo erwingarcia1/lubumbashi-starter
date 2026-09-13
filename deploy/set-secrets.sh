@@ -23,12 +23,14 @@ for line in lines:
         if not m:
             sys.exit("DATABASE_URL_MIGRATIONS has an unexpected shape")
         # The password goes inside a URL: percent-encode it (/ # % ? @ …).
-        line = f"{m.group(1)}:{urllib.parse.quote(pw, safe='')}@{m.group(2)}"
+        line = f"DATABASE_URL_MIGRATIONS={m.group(1)}:{urllib.parse.quote(pw, safe='')}@{m.group(2)}"
     out.append(line)
 text = "\n".join(out) + "\n"
 p.write_text(text)
 left = text.count("__PASTE_")
-bad = [l.split("=")[0] for l in out if l.startswith("SUPABASE_SECRET_KEY=") and not l.split("=", 1)[1].startswith("sb_secret_")]
-print("placeholders left:", left, "| secret key shape:", "ok" if not bad else "NOT an sb_secret_ key")
-sys.exit(0 if left == 0 and not bad else 1)
+secret = next((l.split("=", 1)[1] for l in out if l.startswith("SUPABASE_SECRET_KEY=")), "")
+# A real secret key is sb_secret_ + about 30 characters; the dashboard's masked display is only 15.
+shape = "ok" if secret.startswith("sb_secret_") and len(secret) >= 30 else "NOT a complete sb_secret_ key (use the copy icon, not the displayed text)"
+print("placeholders left:", left, "| secret key shape:", shape)
+sys.exit(0 if left == 0 and shape == "ok" else 1)
 PY
