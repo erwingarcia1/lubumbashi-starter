@@ -725,12 +725,15 @@ export const fr = {
     },
     map: {
       title: "Carte",
+      commune: "Commune",
       status: "Statut",
       agent: "Agent",
       legend: { paid: "Payé", due: "Échéance", late: "En retard", nv: "Non visité" },
       kpis: { paid: "Payé", due: "Échéance en cours", late: "En retard", nv: "Non visités" },
       nvNote: "estimation à partir du cadastre (D6)",
       noKey: "Fond de carte OpenStreetMap (clé MapTiler absente).",
+      allCommunes: "Toutes les communes",
+      empty: "Aucun contribuable recensé pour ces filtres.",
     },
     agents: {
       title: "Agents de terrain",

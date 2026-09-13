@@ -17,9 +17,12 @@ const CoverageMap = dynamic(() => import("./coverage-map").then((m) => m.Coverag
 
 export function CoverageMapLoader(props: {
   points: MapPoint[];
+  center: [number, number];
+  zoom: number;
   maptilerKey: string | null;
   labels: { paid: string; due: string; late: string; nv: string };
   noKeyNote: string;
+  emptyNote: string;
 }) {
   return <CoverageMap {...props} />;
 }

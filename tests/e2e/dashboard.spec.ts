@@ -64,6 +64,16 @@ test("the mayor's walkthrough: overview → alert → agents → revoke a device
   await expect(page.getByTestId("coverage-map")).toBeVisible();
   await expect(page.locator(".leaflet-container")).toBeVisible();
   await expect(page.locator("path.leaflet-interactive").first()).toBeVisible();
+  // Changing the commune applies immediately (no "Rechercher" click); Ruashi has no census point yet,
+  // so the map moves there and says so instead of staying on Kampemba.
+  await page.getByLabel("Commune").selectOption("RUA");
+  await expect(page).toHaveURL(/commune=RUA/);
+  await expect(page.getByRole("heading", { name: "Carte · Ruashi" })).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText("Aucun contribuable recensé pour ces filtres.");
+  await expect(page.locator("path.leaflet-interactive")).toHaveCount(0);
+  await page.getByLabel("Commune").selectOption("");
+  await expect(page.getByRole("heading", { name: "Carte · Toutes les communes" })).toBeVisible();
+  await expect(page.locator("path.leaflet-interactive").first()).toBeVisible();
   await page.getByRole("link", { name: "Recettes" }).click();
   await expect(page.getByRole("heading", { name: "Recettes" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(/RCP-\d{4}-\d{6}/).first()).toBeVisible({ timeout: 15_000 });

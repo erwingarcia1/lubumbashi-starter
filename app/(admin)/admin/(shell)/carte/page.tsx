@@ -1,11 +1,13 @@
 import { asc, eq } from "drizzle-orm";
 
 import { mapPoints } from "@/lib/admin/map";
+import { mapView } from "@/lib/admin/map-center";
 import { getDb } from "@/lib/db/client";
 import { agents, zones } from "@/lib/db/schema";
 import { t } from "@/lib/i18n";
 
 import { CoverageMapLoader } from "./coverage-map-loader";
+import { MapFilters } from "./map-filters";
 
 /** d-map: every registered point coloured by status; "non visités" waits for cadastre data (D6). */
 export default async function MapPage({
@@ -17,6 +19,8 @@ export default async function MapPage({
   const db = getDb();
   const pill =
     sp.statut === "paid" || sp.statut === "due" || sp.statut === "late" ? sp.statut : undefined;
+  // Default: the pilot commune. "" (Toutes les communes) removes the filter.
+  const communeCode = sp.commune === undefined ? "KAM" : sp.commune || undefined;
   const [communes, agentRows, points] = await Promise.all([
     db
       .select({ code: zones.code, name: zones.name })
@@ -24,13 +28,13 @@ export default async function MapPage({
       .where(eq(zones.level, "commune"))
       .orderBy(asc(zones.name)),
     db.select({ matricule: agents.matricule }).from(agents).orderBy(asc(agents.matricule)),
-    mapPoints(db, {
-      communeCode: sp.commune || "KAM",
-      agentMatricule: sp.agent || undefined,
-      pill,
-    }),
+    mapPoints(db, { communeCode, agentMatricule: sp.agent || undefined, pill }),
   ]);
   const M = t.admin.map;
+  const communeName = communeCode
+    ? (communes.find((c) => c.code === communeCode)?.name ?? communeCode)
+    : M.allCommunes;
+  const view = mapView(points, communeCode);
   const counts = {
     paid: points.filter((p) => p.pill === "paid").length,
     due: points.filter((p) => p.pill === "due").length,
@@ -41,17 +45,28 @@ export default async function MapPage({
     <>
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-bold">
-          {M.title} · {communes.find((c) => c.code === (sp.commune || "KAM"))?.name ?? ""}
+          {M.title} · {communeName}
         </h2>
-        <form method="get" className="ml-auto flex flex-wrap gap-1.5 text-[12px]">
-          <select name="commune" defaultValue={sp.commune ?? "KAM"} className={sel}>
+        <MapFilters className="ml-auto flex flex-wrap gap-1.5 text-[12px]">
+          <select
+            name="commune"
+            defaultValue={communeCode ?? ""}
+            aria-label={M.commune}
+            className={sel}
+          >
+            <option value="">{M.allCommunes}</option>
             {communes.map((z) => (
               <option key={z.code} value={z.code}>
                 {z.name}
               </option>
             ))}
           </select>
-          <select name="statut" defaultValue={sp.statut ?? ""} className={sel}>
+          <select
+            name="statut"
+            defaultValue={sp.statut ?? ""}
+            aria-label={M.status}
+            className={sel}
+          >
             <option value="">
               {M.status} : {t.common.all}
             </option>
@@ -59,7 +74,7 @@ export default async function MapPage({
             <option value="due">{t.status.pill.due}</option>
             <option value="late">{t.status.pill.late}</option>
           </select>
-          <select name="agent" defaultValue={sp.agent ?? ""} className={sel}>
+          <select name="agent" defaultValue={sp.agent ?? ""} aria-label={M.agent} className={sel}>
             <option value="">
               {M.agent} : {t.common.all}
             </option>
@@ -75,13 +90,16 @@ export default async function MapPage({
           >
             {t.common.search}
           </button>
-        </form>
+        </MapFilters>
       </div>
       <CoverageMapLoader
         points={points}
+        center={view.center}
+        zoom={view.zoom}
         maptilerKey={process.env.NEXT_PUBLIC_MAPTILER_KEY ?? null}
         labels={M.legend}
         noKeyNote={M.noKey}
+        emptyNote={M.empty}
       />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2.5">
         {[
