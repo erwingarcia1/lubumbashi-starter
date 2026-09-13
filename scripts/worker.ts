@@ -16,6 +16,9 @@ async function main() {
   const boss = new PgBoss({
     connectionString: process.env.DATABASE_URL!,
     schema: "pgboss",
+    // The schema is created by migration 0009: app_login may create tables in it but has no CREATE
+    // privilege on the database, and Postgres checks that before the IF NOT EXISTS shortcut.
+    createSchema: false,
     application_name: "lubumbashi-worker",
   });
   boss.on("error", (err: Error) => console.error("pg-boss:", err));

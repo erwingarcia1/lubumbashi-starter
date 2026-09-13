@@ -26,7 +26,7 @@ Prérequis : une VM Linux avec Docker (2 vCPU, 4 Go), un nom de domaine pointant
 
 Mise à jour : `git pull && docker compose --profile ops run --rm migrate && docker compose up -d --build web`.
 
-Notes : sur Supabase hébergé, le rôle `app_login` se connecte par l'URL directe (ou via le pooler sous le nom `app_login.<ref>`) ; les clés *secret* et `APP_DB_PASSWORD` ne quittent jamais `.env.production`. Le service `worker` (pg-boss) est activé à partir de M5/M9 (`--profile worker`).
+Notes : sur Supabase hébergé, utiliser le **Session pooler** (IPv4) : le rôle `app_login` s'y connecte sous le nom `app_login.<ref>` ; le worker pg-boss tourne avec `createSchema: false` (le schéma `pgboss` vient de la migration 0009) ; procédure complète dans `docs/DEPLOY-AWS.en.md` ; les clés *secret* et `APP_DB_PASSWORD` ne quittent jamais `.env.production`. Le service `worker` (pg-boss) est activé à partir de M5/M9 (`--profile worker`).
 
 ## Notifications (SMS)
 

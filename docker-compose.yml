@@ -1,19 +1,36 @@
 # Online demo / pilot stack (D23). Secrets come from .env.production (never committed).
-# 1. cp .env.example .env.production and fill in the hosted Supabase values + APP_DOMAIN
-# 2. docker compose --profile ops run --rm migrate      (migrations, roles, optional seed)
-# 3. docker compose up -d web caddy                     (Caddy obtains the TLS certificate)
+# 1. cp .env.example .env.production, fill in the hosted Supabase values + APP_DOMAIN,
+#    then `ln -sf .env.production .env` so the ${VARIABLES} below (build args, APP_DOMAIN) resolve
+# 2. docker compose --profile ops run --rm migrate      (migrations, roles; SEED_ON_DEPLOY=1 adds the seed)
+# 3. docker compose build web && docker compose up -d web caddy   (Caddy obtains the TLS certificate)
+# 4. docker compose --profile worker up -d worker       (pg-boss jobs)
+# Full runbook: docs/DEPLOY-AWS.en.md
 services:
   web:
     build:
       context: .
       target: web
       args:
-        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
-    env_file: .env.production
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?set in .env.production (ln -sf .env.production .env)}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?set in .env.production}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?set in .env.production}
+    # Only what the app reads: the owner connection (DATABASE_URL_MIGRATIONS), APP_DB_PASSWORD and
+    # SEED_ADMIN_PASSWORD never enter the request-serving container (invariant 4).
     environment:
-      APP_ENV: ${APP_ENV:-demo}
+      APP_ENV: ${APP_ENV:?APP_ENV is unset - run ln -sf .env.production .env}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:?set in .env.production}
+      DATABASE_URL: ${DATABASE_URL:?set in .env.production}
+      AGENT_SESSION_SECRET: ${AGENT_SESSION_SECRET:?set in .env.production}
+      CRON_SECRET: ${CRON_SECRET:?set in .env.production}
+      PAYMENT_PROVIDERS: ${PAYMENT_PROVIDERS:-}
+      PAYMENT_CHANNELS: ${PAYMENT_CHANNELS:-mpesa,airtel,orange}
+      PAYMENT_EXPIRY_HOURS: ${PAYMENT_EXPIRY_HOURS:-24}
+      SMS_PROVIDER: ${SMS_PROVIDER:-console}
+      NEXT_PUBLIC_MAPTILER_KEY: ${NEXT_PUBLIC_MAPTILER_KEY:-}
+      NEXT_TELEMETRY_DISABLED: "1"
       TZ: Africa/Lubumbashi
     expose:
       - "3000"
@@ -41,8 +58,9 @@ services:
       target: ops
     env_file: .env.production
     environment:
-      APP_ENV: ${APP_ENV:-demo}
-    command: sh -c "pnpm db:migrate && ${SEED_ON_DEPLOY:+pnpm db:seed}"
+      APP_ENV: ${APP_ENV:?APP_ENV is unset - run ln -sf .env.production .env}
+    # SEED_ON_DEPLOY=1 appends the demo seed (refused by the seed itself when APP_ENV=production).
+    command: sh -c "pnpm db:migrate${SEED_ON_DEPLOY:+ && pnpm db:seed}"
 
   # pg-boss worker (M9): nightly reconciliation 23:30, penalty accrual 00:10, SMS sends every minute.
   worker:
@@ -51,6 +69,9 @@ services:
       context: .
       target: ops
     env_file: .env.production
+    environment:
+      APP_ENV: ${APP_ENV:?APP_ENV is unset - run ln -sf .env.production .env}
+      TZ: Africa/Lubumbashi
     command: pnpm worker
     restart: unless-stopped
 
