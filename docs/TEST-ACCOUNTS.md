@@ -1,5 +1,9 @@
 # Comptes de test (environnement local et démo)
 
+Serveur de démonstration en ligne (AWS Le Cap + Supabase Francfort) : **https://13-244-143-138.sslip.io** —
+mêmes comptes que ci-dessous, remplacer `http://localhost:3000` par cette adresse. Guide de recette :
+`docs/UAT.md`. Liens portail de démonstration : imprimés par le seed sur le serveur et sur la page d'accueil.
+
 Tous ces comptes sont créés par `pnpm db:seed` (fichier `scripts/seed.ts`). Le mot de passe des
 administrateurs est la variable `SEED_ADMIN_PASSWORD` de `.env.local` (valeur par défaut ci-dessous).
 Jamais utilisés en production : le seed refuse de s'exécuter quand `APP_ENV=production`.
