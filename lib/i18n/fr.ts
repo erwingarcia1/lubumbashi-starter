@@ -15,6 +15,18 @@ export const fr = {
     admin: "Tableau de bord Mairie (web)",
     portal: "Portail contribuable (mobile)",
   },
+  home: {
+    agentBody: "Recensement avec GPS et QR, encaissement mobile money, hors ligne.",
+    agentCta: "Ouvrir l’application agent",
+    adminBody: "Vue d’ensemble, recettes, carte, agents, taxes et contribuables.",
+    adminCta: "Ouvrir le tableau de bord",
+    portalBody:
+      "Le contribuable ouvre le lien reçu par SMS : solde, paiement, reçus, réclamations. Pas de mot de passe.",
+    portalDemo: "Lien de démonstration (contribuable LUB-KAM-00000125)",
+    portalVerify: "Vérifier un reçu",
+    demoAccounts:
+      "Comptes de démonstration : voir docs/MILESTONES.md · agent AG-KAM-007, PIN 123456.",
+  },
   common: {
     start: "Commencer",
     comingSoon: "Disponible dans une prochaine étape",

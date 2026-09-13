@@ -26,6 +26,7 @@ import { allocateReceiptNo } from "@/lib/identity/ids";
 import { DEFAULT_APPROVAL_POLICY } from "@/lib/identity/roles";
 import { RULE_VERSION_APPROVAL_KEY } from "@/lib/admin/settings";
 import { ensurePhotoBucket } from "@/lib/census/photos";
+import { demoPortalToken } from "@/lib/portal/demo";
 import { issuePortalLink } from "@/lib/portal/links";
 import { businessClock, monthPeriodOf, yymm } from "@/lib/time";
 
@@ -1052,10 +1053,7 @@ export async function runSeed(db: Db): Promise<SeedSummary> {
     // The token is derived from the taxpayer number and AGENT_SESSION_SECRET so `pnpm db:seed`
     // prints the same URL every run; only its hash is stored, like every portal link.
     for (const [no, id] of taxpayerId) {
-      const token = createHash("sha256")
-        .update(`portal-demo:${no}:${process.env.AGENT_SESSION_SECRET ?? ""}`)
-        .digest("base64url")
-        .slice(0, 32);
+      const token = demoPortalToken(no);
       const link = await issuePortalLink(
         tx,
         id,
