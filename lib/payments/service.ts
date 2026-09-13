@@ -16,7 +16,7 @@ import {
 import { issueReceipt, type ReceiptAllocation } from "@/lib/receipts/issue";
 import { allocatePayment, obligationStatus } from "@/lib/tax-engine";
 
-import type { PaymentChannel, StatusResult } from "./provider";
+import type { PaymentChannel, PaymentProvider, StatusResult } from "./provider";
 import { generateReference } from "./reference";
 import { getProvider, paymentExpiryHours } from "./registry";
 import { transition, type PaymentStatus } from "./state-machine";
@@ -27,7 +27,8 @@ export type PaymentErrorCode =
   | "payment_not_found"
   | "invalid_transition"
   | "amount_mismatch"
-  | "reference_collision";
+  | "reference_collision"
+  | "reversal_refused";
 
 export class PaymentError extends Error {
   constructor(
@@ -472,4 +473,118 @@ export async function syncPaymentStatus(
     });
   }
   return getPaymentView(db, reference);
+}
+
+/**
+ * Controlled reversal (plan §6, D29): the provider is asked to give the money back, then in one
+ * transaction the allocations are undone (obligations become due again), the receipt is
+ * cancelled with the reason (invariant 7: it stays in the table) and the payment becomes
+ * `reversed`. Only a confirmed payment can be reversed, once.
+ */
+export async function reversePayment(
+  db: Db,
+  reference: string,
+  input: {
+    reason: string;
+    actor: { id: string; role: string; label: string };
+    ctx?: { ip?: string; userAgent?: string };
+  },
+  now = new Date(),
+  providerOverride?: PaymentProvider,
+): Promise<{ status: PaymentStatus; receiptNo: string | null; reversalReference: string | null }> {
+  const [p] = await db.select().from(payments).where(eq(payments.reference, reference));
+  if (!p) throw new PaymentError("payment_not_found", reference);
+  const t = transition(p.status, "reversed");
+  if (!t.ok) throw new PaymentError("invalid_transition", `${p.status} cannot be reversed`);
+  const [confirmation] = await db
+    .select()
+    .from(providerConfirmations)
+    .where(eq(providerConfirmations.paymentId, p.id));
+  if (!confirmation) throw new PaymentError("invalid_transition", "no provider confirmation");
+  const provider = providerOverride ?? getProvider(p.channel);
+  const r = await provider.reverse({
+    reference,
+    providerReference: confirmation.providerReference,
+    amountFc: p.amountFc,
+    reason: input.reason,
+  });
+  if (!r.ok) throw new PaymentError("reversal_refused");
+
+  return db.transaction(async (tx) => {
+    const [locked] = await tx.select().from(payments).where(eq(payments.id, p.id)).for("update");
+    if (!locked || locked.status !== "confirmed")
+      throw new PaymentError("invalid_transition", "payment changed meanwhile");
+    const allocations = await tx
+      .select()
+      .from(paymentAllocations)
+      .where(eq(paymentAllocations.paymentId, p.id));
+    for (const a of allocations) {
+      const [o] = await tx.select().from(obligations).where(eq(obligations.id, a.obligationId));
+      if (!o) continue;
+      const paidFc = Math.max(0, o.paidFc - a.amountFc);
+      await tx
+        .update(obligations)
+        .set({
+          paidFc,
+          status: obligationStatus({ amountFc: o.amountFc, penaltyFc: o.penaltyFc, paidFc }),
+          updatedAt: now,
+        })
+        .where(eq(obligations.id, o.id));
+    }
+    await tx.delete(paymentAllocations).where(eq(paymentAllocations.paymentId, p.id));
+    const [receipt] = await tx.select().from(receipts).where(eq(receipts.paymentId, p.id));
+    if (receipt && receipt.status === "issued") {
+      await tx
+        .update(receipts)
+        .set({
+          status: "cancelled",
+          cancelledAt: now,
+          cancelledReason: input.reason,
+          cancelledByAdminId: input.actor.role === "agent" ? null : input.actor.id,
+        })
+        .where(eq(receipts.id, receipt.id));
+      await writeAudit(tx, {
+        actor: {
+          type: "admin",
+          id: input.actor.id,
+          role: input.actor.role,
+          label: input.actor.label,
+        },
+        action: "receipt.cancelled",
+        object: { type: "receipt", id: receipt.receiptNo },
+        details: { payment: reference, reason: input.reason },
+        where: input.ctx?.ip ? { ip: input.ctx.ip } : undefined,
+        device: input.ctx?.userAgent ? { userAgent: input.ctx.userAgent } : undefined,
+      });
+    }
+    await tx
+      .update(payments)
+      .set({ status: "reversed", reversedAt: now, failureReason: input.reason, updatedAt: now })
+      .where(eq(payments.id, p.id));
+    await writeAudit(tx, {
+      actor: {
+        type: "admin",
+        id: input.actor.id,
+        role: input.actor.role,
+        label: input.actor.label,
+      },
+      action: "payment.reversed",
+      object: { type: "payment", id: reference },
+      details: {
+        amountFc: p.amountFc,
+        provider: provider.name,
+        providerReference: confirmation.providerReference,
+        reversalReference: r.providerReference ?? null,
+        reason: input.reason,
+        obligations: allocations.map((a) => a.obligationId),
+      },
+      where: input.ctx?.ip ? { ip: input.ctx.ip } : undefined,
+      device: input.ctx?.userAgent ? { userAgent: input.ctx.userAgent } : undefined,
+    });
+    return {
+      status: "reversed" as PaymentStatus,
+      receiptNo: receipt?.receiptNo ?? null,
+      reversalReference: r.providerReference ?? null,
+    };
+  });
 }

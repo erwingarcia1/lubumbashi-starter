@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { ZodError } from "zod";
 
 import { createAgent, resetAgentPin, revokeDevice } from "@/lib/admin/agents";
+import { requestPaymentReversal } from "@/lib/admin/payments";
 import { createAdminUser, setAdminActive, setAdminRole } from "@/lib/admin/users";
 import type { AdminRole } from "@/lib/identity/roles";
 import { AdminError, type AdminErrorCode } from "@/lib/admin/errors";
@@ -373,4 +374,26 @@ export async function setAdminActiveAction(formData: FormData) {
   }
   revalidatePath("/admin/reglages");
   redirect(error ? `/admin/reglages?error=${error}` : "/admin/reglages?ok=active");
+}
+
+export async function reversePaymentAction(formData: FormData) {
+  const session = await requireAdmin();
+  const taxpayerNo = str(formData, "taxpayerNo");
+  let error: AdminErrorCode | undefined;
+  try {
+    await requestPaymentReversal(
+      getDb(),
+      session,
+      { reference: str(formData, "reference"), reason: str(formData, "reason") },
+      await requestContext(),
+    );
+  } catch (err) {
+    error = codeOf(err);
+  }
+  revalidatePath(`/admin/contribuables/${taxpayerNo}`);
+  redirect(
+    (error
+      ? `/admin/contribuables/${taxpayerNo}?error=${error}`
+      : `/admin/contribuables/${taxpayerNo}?ok=reversed`) as Route,
+  );
 }

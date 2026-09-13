@@ -13,7 +13,7 @@ import { formatDateFr, formatDateTimeFr, formatFC, formatMonthFr } from "@/lib/i
 import { t } from "@/lib/i18n";
 import { businessDate } from "@/lib/time";
 
-import { changeCategoryAction, updateContactAction } from "../../../_actions";
+import { changeCategoryAction, reversePaymentAction, updateContactAction } from "../../../_actions";
 import { Banner } from "../../../_components/banner";
 import { Pill, type PillTone } from "../../../_components/pill";
 
@@ -53,8 +53,15 @@ export default async function TaxpayerPage({
   const today = businessDate(new Date());
   const D = t.admin.taxpayers.detail;
   const editable = canEditTaxpayer(session.role);
+  const canReverse = session.role === "finances" || session.role === "administrateur";
   const okMessage =
-    ok === "contact" ? D.contactSaved : ok === "category" ? D.categorySaved : undefined;
+    ok === "reversed"
+      ? D.reverseDone
+      : ok === "contact"
+        ? D.contactSaved
+        : ok === "category"
+          ? D.categorySaved
+          : undefined;
   const firstEntity = d.entities[0];
   const lateSince = d.obligations
     .filter((o) => o.dueDate < today && (o.status === "due" || o.status === "partially_paid"))
@@ -224,6 +231,29 @@ export default async function TaxpayerPage({
                       >
                         {t.status.payment[p.status]}
                       </Pill>
+                      {canReverse && p.status === "confirmed" ? (
+                        <form
+                          action={reversePaymentAction}
+                          className="mt-1 flex items-center gap-1"
+                        >
+                          <input type="hidden" name="taxpayerNo" value={d.taxpayer.taxpayerNo} />
+                          <input type="hidden" name="reference" value={p.reference} />
+                          <input
+                            name="reason"
+                            required
+                            minLength={5}
+                            placeholder={D.reverseReason}
+                            aria-label={`${D.reverseReason} ${p.reference}`}
+                            className="h-7 w-36 rounded-md border border-[#D5CFCF] px-1.5 text-[11.5px]"
+                          />
+                          <button
+                            type="submit"
+                            className="text-bad h-7 rounded-md border border-[#D5CFCF] bg-white px-2 text-[11px] font-semibold"
+                          >
+                            {D.reverse}
+                          </button>
+                        </form>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

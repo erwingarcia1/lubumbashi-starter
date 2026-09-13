@@ -88,6 +88,7 @@ One per Claude Code session. Do the first unchecked one. Mark it `[x]` with a sh
 - Agents: Superviseur/Administrateur create agents (`AG-<commune>-NNN` assigned, PIN chosen, argon2) and change a PIN from `/admin/agents`; audited without the PIN.
 - Réglages (`/admin/reglages`, Administrateur): create Mairie users (Supabase login + `admin_users` row, one-time password shown once in the form, never in a URL or log), change roles, disable/re-enable (Supabase ban); `pnpm admin:create` remains for the very first account.
 - Recettes: "Encaissé par période" grouped by day, week, month or year with the same filters; the Excel export button now downloads the monthly report.
+- Contribuables: Finances/Administrateur reverse a confirmed payment with a reason (`lib/payments/service.ts reversePayment`: provider `reverse()`, allocations undone, receipt cancelled and kept, payment `reversed`, two audit rows; D29 second approver pending).
 - Deploy: `docs/DEPLOY-AWS.en.md` verified; demo server `https://13-244-143-138.sslip.io` (EC2 af-south-1 + Supabase Frankfurt); regression `pnpm test:e2e:remote`; `docs/UAT.md` for the product owners.
 
 ## Later (not before DECISIONS are answered)

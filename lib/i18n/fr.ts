@@ -875,6 +875,10 @@ export const fr = {
         contactSaved: "Coordonnées mises à jour.",
         categorySaved: "Catégorie corrigée.",
         mapSoon: "Carte disponible à l’étape M6.",
+        reverse: "Annuler le paiement",
+        reverseReason: "Motif de l’annulation",
+        reverseDone:
+          "Paiement annulé chez le fournisseur : le solde est rétabli et le reçu est marqué annulé.",
       },
     },
   },
