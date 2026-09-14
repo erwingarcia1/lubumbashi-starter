@@ -16,6 +16,11 @@ import { POINTS_MAX_ZOOM, type MapView } from "@/lib/admin/map-center";
 import { t } from "@/lib/i18n";
 
 const COLORS = { paid: "#1E7F4F", due: "#B7791F", late: "#C1121F" } as const;
+/** The city and its surroundings: the map cannot be panned or zoomed beyond this. */
+const LUBUMBASHI_BOUNDS: [[number, number], [number, number]] = [
+  [-11.95, 27.15],
+  [-11.35, 27.85],
+];
 
 export function CoverageMap({
   points,
@@ -47,7 +52,11 @@ export function CoverageMap({
       <MapContainer
         key={JSON.stringify(view)}
         {...frame}
-        scrollWheelZoom
+        // The page scrolls; a trackpad swipe over the map must not zoom it out to the world.
+        scrollWheelZoom={false}
+        minZoom={11}
+        maxBounds={LUBUMBASHI_BOUNDS}
+        maxBoundsViscosity={1}
         zoomControl={false}
         attributionControl={false}
         className="h-[340px] w-full"
