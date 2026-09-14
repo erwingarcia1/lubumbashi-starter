@@ -70,6 +70,10 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
         await expect(page).toHaveURL(/\/admin\/carte$/);
         await expect(page.getByRole("heading", { name: /^Carte · / })).toBeVisible();
         await expect(carte).toBeHidden(); // the drawer closed on navigation
+        // The drawer must sit above the Leaflet map (its panes carry z-index 400-1000).
+        await menu.click();
+        await page.getByRole("link", { name: "Vue d’ensemble" }).click();
+        await expect(page).toHaveURL(/\/admin$/);
         await menu.click();
         await page.keyboard.press("Escape");
         await expect(carte).toBeHidden();

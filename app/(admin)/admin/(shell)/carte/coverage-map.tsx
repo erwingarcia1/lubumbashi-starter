@@ -46,7 +46,7 @@ export function CoverageMap({
       : { center: view.center, zoom: view.zoom };
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-[#D9E2DB] max-md:[&_.leaflet-bar_a]:h-11! max-md:[&_.leaflet-bar_a]:w-11! max-md:[&_.leaflet-bar_a]:leading-11!"
+      className="relative isolate z-0 overflow-hidden rounded-lg border border-[#D9E2DB] max-md:[&_.leaflet-bar_a]:h-11! max-md:[&_.leaflet-bar_a]:w-11! max-md:[&_.leaflet-bar_a]:leading-11!"
       data-testid="coverage-map"
     >
       <MapContainer
