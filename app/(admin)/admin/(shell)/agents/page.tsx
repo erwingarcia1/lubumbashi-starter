@@ -49,30 +49,30 @@ export default async function AgentsPage({
           </p>
           <p className="mt-1 text-[12px] text-[#5C5456]">{A.newAgentHint}</p>
           <div className="mt-2 flex flex-wrap items-end gap-2 text-[12.5px]">
-            <label className="flex flex-col gap-0.5 text-[#5C5456]">
+            <label className="flex w-full flex-col gap-0.5 text-[#5C5456] md:w-auto">
               {A.fullName}
               <input
                 name="fullName"
                 required
                 minLength={3}
-                className="h-9 w-56 rounded-md border border-[#D5CFCF] px-2 text-[#1B1B1F]"
+                className="h-11 w-full rounded-md border border-[#D5CFCF] px-2 text-base text-[#1B1B1F] md:h-9 md:w-56 md:text-[12.5px]"
               />
             </label>
-            <label className="flex flex-col gap-0.5 text-[#5C5456]">
+            <label className="flex w-full flex-col gap-0.5 text-[#5C5456] md:w-auto">
               {A.phone}
               <input
                 name="phone"
                 inputMode="tel"
                 pattern="^\+[1-9][0-9]{6,14}$"
-                className="h-9 w-44 rounded-md border border-[#D5CFCF] px-2 font-mono text-[#1B1B1F]"
+                className="h-11 w-full rounded-md border border-[#D5CFCF] px-2 font-mono text-base text-[#1B1B1F] md:h-9 md:w-44 md:text-[12.5px]"
               />
             </label>
-            <label className="flex flex-col gap-0.5 text-[#5C5456]">
+            <label className="flex w-full flex-col gap-0.5 text-[#5C5456] md:w-auto">
               {A.quartier}
               <select
                 name="quartierId"
                 required
-                className="h-9 rounded-md border border-[#D5CFCF] bg-white px-2 text-[#1B1B1F]"
+                className="h-11 w-full rounded-md border border-[#D5CFCF] bg-white px-2 text-base text-[#1B1B1F] md:h-9 md:w-auto md:text-[12.5px]"
               >
                 {communes.flatMap((c) =>
                   c.quartiers.map((q) => (
@@ -83,7 +83,7 @@ export default async function AgentsPage({
                 )}
               </select>
             </label>
-            <label className="flex flex-col gap-0.5 text-[#5C5456]">
+            <label className="flex w-full flex-col gap-0.5 text-[#5C5456] md:w-auto">
               {A.pin}
               <input
                 name="pin"
@@ -91,12 +91,12 @@ export default async function AgentsPage({
                 inputMode="numeric"
                 pattern="[0-9]{6}"
                 maxLength={6}
-                className="h-9 w-28 rounded-md border border-[#D5CFCF] px-2 font-mono text-[#1B1B1F]"
+                className="h-11 w-full rounded-md border border-[#D5CFCF] px-2 font-mono text-base text-[#1B1B1F] md:h-9 md:w-28 md:text-[12.5px]"
               />
             </label>
             <button
               type="submit"
-              className="h-9 rounded-md bg-[#C1121F] px-3 text-[12.5px] font-semibold text-white"
+              className="h-11 w-full rounded-md bg-[#C1121F] px-3 text-[12.5px] font-semibold text-white md:h-9 md:w-auto"
             >
               {A.create}
             </button>
@@ -157,11 +157,11 @@ export default async function AgentsPage({
                           maxLength={6}
                           placeholder={A.newPin}
                           aria-label={`${A.newPin} ${r.matricule}`}
-                          className="h-7 w-24 rounded-md border border-[#D5CFCF] px-1.5 font-mono text-[11.5px]"
+                          className="h-11 w-32 rounded-md border border-[#D5CFCF] px-1.5 font-mono text-base md:h-7 md:w-24 md:text-[11.5px]"
                         />
                         <button
                           type="submit"
-                          className="h-7 rounded-md border border-[#D5CFCF] bg-white px-2 text-[11px] font-semibold"
+                          className="h-11 rounded-md border border-[#D5CFCF] bg-white px-2 text-[11px] font-semibold whitespace-nowrap md:h-7"
                         >
                           {A.resetPin}
                         </button>
@@ -206,12 +206,12 @@ export default async function AgentsPage({
           {rows.reduce((s, r) => s + r.devices.filter((d) => d.status === "revoked").length, 0)}{" "}
           {A.revoked}
         </p>
-        <div className="mt-2 grid gap-2 md:grid-cols-2">
+        <div className="mt-2 grid gap-2 lg:grid-cols-2">
           {rows.flatMap((r) =>
             r.devices.map((d) => (
               <div
                 key={d.id}
-                className="flex flex-wrap items-center gap-2 rounded-md border border-[#EFEAEA] px-3 py-2 text-[12.5px]"
+                className="flex flex-wrap items-center gap-2 overflow-hidden rounded-md border border-[#EFEAEA] px-3 py-2 text-[12.5px]"
               >
                 <span className="font-mono font-semibold">{d.code}</span>
                 <span>{d.label ?? t.common.none}</span>
@@ -222,18 +222,21 @@ export default async function AgentsPage({
                     : `${A.revoked}${d.revokedReason ? ` · ${d.revokedReason}` : ""}`}
                 </Pill>
                 {canRevoke && d.status === "active" ? (
-                  <form action={revokeDeviceAction} className="ml-auto flex items-center gap-1.5">
+                  <form
+                    action={revokeDeviceAction}
+                    className="flex w-full items-center gap-1.5 md:ml-auto md:w-auto"
+                  >
                     <input type="hidden" name="deviceId" value={d.id} />
                     <input
                       name="reason"
                       placeholder={A.revokeReason}
                       required
                       minLength={3}
-                      className="h-8 rounded-md border border-[#D5CFCF] px-2 text-[12px]"
+                      className="h-11 min-w-0 flex-1 rounded-md border border-[#D5CFCF] px-2 text-base md:h-8 md:flex-none md:text-[12px]"
                     />
                     <button
                       type="submit"
-                      className="h-8 rounded-md bg-[#C1121F] px-3 text-[12px] font-semibold text-white"
+                      className="h-11 flex-none rounded-md bg-[#C1121F] px-3 text-[12px] font-semibold text-white md:h-8"
                     >
                       {A.revoke}
                     </button>

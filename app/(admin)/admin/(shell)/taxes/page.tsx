@@ -28,7 +28,10 @@ export default async function TaxesPage() {
                 t.admin.taxes.columns.effective,
                 t.admin.taxes.columns.status,
               ].map((h) => (
-                <th key={h} className="border-b border-[#D5CFCF] px-2.5 py-2 font-semibold">
+                <th
+                  key={h}
+                  className="border-b border-[#D5CFCF] px-2.5 py-2 font-semibold whitespace-nowrap"
+                >
                   {h}
                 </th>
               ))}
@@ -39,28 +42,30 @@ export default async function TaxesPage() {
               const v = r.current ?? r.upcoming;
               return (
                 <tr key={r.id} className="border-b border-[#EFEAEA] hover:bg-[#FFF6F6]">
-                  <td className="px-2.5 py-2">
+                  <td className="px-2.5 py-2 whitespace-nowrap lg:whitespace-normal">
                     <Link
                       href={`/admin/taxes/${r.code}` as never}
-                      className="font-semibold text-[#C1121F] underline-offset-2 hover:underline"
+                      className="inline-flex min-h-11 items-center font-semibold text-[#C1121F] underline-offset-2 hover:underline md:min-h-0"
                     >
                       {r.labelFr}
                     </Link>
                   </td>
-                  <td className="px-2.5 py-2">{r.categoryLabel}</td>
-                  <td className="px-2.5 py-2 font-mono">{calcText(v)}</td>
-                  <td className="px-2.5 py-2">
+                  <td className="px-2.5 py-2 whitespace-nowrap lg:whitespace-normal">
+                    {r.categoryLabel}
+                  </td>
+                  <td className="px-2.5 py-2 font-mono whitespace-nowrap">{calcText(v)}</td>
+                  <td className="px-2.5 py-2 whitespace-nowrap">
                     {v ? t.admin.taxes.frequencyLabels[v.frequency] : t.common.none}
                   </td>
-                  <td className="px-2.5 py-2">{penaltyText(v)}</td>
-                  <td className="px-2.5 py-2">
+                  <td className="px-2.5 py-2 whitespace-nowrap">{penaltyText(v)}</td>
+                  <td className="px-2.5 py-2 whitespace-nowrap">
                     {r.current
                       ? formatDateFr(r.current.effectiveFrom)
                       : r.upcoming
                         ? formatDateFr(r.upcoming.effectiveFrom)
                         : t.common.none}
                   </td>
-                  <td className="px-2.5 py-2">
+                  <td className="px-2.5 py-2 whitespace-nowrap lg:whitespace-normal">
                     {r.current ? (
                       <Pill tone="ok">{t.status.version.approved}</Pill>
                     ) : r.upcoming ? (

@@ -45,12 +45,15 @@ export default async function AuditPage({
         <span className="text-[12.5px] text-[#5C5456]">{A.subtitle}</span>
         <a
           href={`/api/v1/admin/reports/audit?format=csv&${query.toString()}`}
-          className="ml-auto h-8 rounded-md border border-[#D5CFCF] bg-white px-3 text-[12.5px] leading-8 font-semibold"
+          className="ml-auto inline-flex h-11 items-center rounded-md border border-[#D5CFCF] bg-white px-3 text-[12.5px] font-semibold md:h-8"
         >
           {A.export}
         </a>
       </div>
-      <form method="get" className="flex flex-wrap items-end gap-2 text-[12.5px]">
+      <form
+        method="get"
+        className="grid grid-cols-2 items-end gap-2 text-[12.5px] md:flex md:flex-wrap"
+      >
         {(
           [
             ["from", A.filters.from, "date"],
@@ -60,26 +63,34 @@ export default async function AuditPage({
             ["object", A.filters.object, "text"],
           ] as const
         ).map(([name, label, type]) => (
-          <label key={name} className="flex flex-col gap-0.5 text-[#5C5456]">
+          <label key={name} className="flex min-w-0 flex-col gap-0.5 text-[#5C5456]">
             {label}
             <input
               name={name}
               type={type}
               defaultValue={q[name] ?? ""}
-              className="h-8 rounded-md border border-[#D5CFCF] bg-white px-2 text-[#1B1B1F]"
+              className="h-11 w-full min-w-0 rounded-md border border-[#D5CFCF] bg-white px-2 text-base text-[#1B1B1F] md:h-8 md:w-auto md:text-[12.5px]"
             />
           </label>
         ))}
-        <button type="submit" className="h-8 rounded-md bg-[#C1121F] px-3 font-semibold text-white">
+        <button
+          type="submit"
+          className="h-11 rounded-md bg-[#C1121F] px-3 font-semibold text-white md:h-8"
+        >
           {A.filters.apply}
         </button>
-        <a href="/admin/audit" className="h-8 leading-8 text-[#5C5456] underline">
+        <a
+          href="/admin/audit"
+          className="inline-flex h-11 items-center justify-self-start px-2 text-[#5C5456] underline md:h-8 md:px-0"
+        >
           {A.filters.reset}
         </a>
-        <span className="ml-auto text-[#5C5456]">{A.count.replace("{n}", String(total))}</span>
+        <span className="justify-self-end text-[#5C5456] md:ml-auto">
+          {A.count.replace("{n}", String(total))}
+        </span>
       </form>
       <div className="overflow-x-auto rounded-lg border border-[#E3DEDE] bg-white">
-        <table className="w-full text-[12px]">
+        <table className="w-full min-w-[960px] text-[12px]">
           <thead>
             <tr className="text-left text-[10.5px] tracking-wider text-[#5C5456] uppercase">
               {[
@@ -120,7 +131,7 @@ export default async function AuditPage({
                   {actionLabel(r.action)}
                   {r.reason ? <div className="text-[11px] text-[#5C5456]">{r.reason}</div> : null}
                 </td>
-                <td className="px-2.5 py-1.5 font-mono">{r.objectId}</td>
+                <td className="px-2.5 py-1.5 font-mono whitespace-nowrap">{r.objectId}</td>
                 <td className="px-2.5 py-1.5 font-mono whitespace-nowrap">
                   {r.gps
                     ? `${r.gps.y.toFixed(4)}, ${r.gps.x.toFixed(4)}`
@@ -144,7 +155,7 @@ export default async function AuditPage({
       {rows.length < total ? (
         <a
           href={`/admin/audit?${query.toString()}&limit=${Math.min(filters.limit! * 2, 1000)}`}
-          className="text-[12.5px] text-[#5C5456] underline"
+          className="py-3.5 text-[12.5px] text-[#5C5456] underline md:py-0"
         >
           {A.more.replace("{n}", String(Math.min(filters.limit!, total - rows.length)))}
         </a>

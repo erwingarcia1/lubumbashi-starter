@@ -23,7 +23,7 @@ export function SideNav({ items }: { items: NavItem[] }) {
           <Link
             key={item.key}
             href={item.href as never}
-            className={`block rounded-md px-2.5 py-2 text-[13px] ${active ? "bg-[#C1121F] font-semibold text-white" : "text-[#CFC5C7] hover:bg-[#2A2224]"} ${item.live ? "" : "opacity-60"}`}
+            className={`block rounded-md px-2.5 py-3 text-[14px] md:py-2 md:text-[13px] ${active ? "bg-[#C1121F] font-semibold text-white" : "text-[#CFC5C7] hover:bg-[#2A2224]"} ${item.live ? "" : "opacity-60"}`}
           >
             {item.label}
           </Link>

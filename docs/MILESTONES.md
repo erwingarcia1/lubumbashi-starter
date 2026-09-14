@@ -90,6 +90,7 @@ One per Claude Code session. Do the first unchecked one. Mark it `[x]` with a sh
 - Recettes: "Encaissé par période" grouped by day, week, month or year with the same filters; the Excel export button now downloads the monthly report.
 - Contribuables: Finances/Administrateur reverse a confirmed payment with a reason (`lib/payments/service.ts reversePayment`: provider `reverse()`, allocations undone, receipt cancelled and kept, payment `reversed`, two audit rows; D29 second approver pending).
 - Carte: filters apply on mouse change, keyboard changes wait for Entrée/blur (`map-filters.tsx`, button kept for no-JS); "Toutes les communes" option; unknown commune codes fall back to all; the map frames every point or centres on the selected commune's approximate centroid when it has none (`lib/admin/map-center.ts`, until D6 cadastre data); explicit empty state; Leaflet's English control titles replaced (invariant 8). Demo data only covers Kampemba, the pilot commune.
+- Responsive admin: sidebar from 768 px, drawer with a sticky top bar below (`_components/admin-shell.tsx`); every admin screen checked at 390/768/1280/1920 px by `tests/e2e/responsive.spec.ts` (no sideways scroll, drawer navigation); agent and portal stay phone-width columns centred on wide screens.
 - Deploy: `docs/DEPLOY-AWS.en.md` verified; demo server `https://13-244-143-138.sslip.io` (EC2 af-south-1 + Supabase Frankfurt); regression `pnpm test:e2e:remote`; `docs/UAT.md` for the product owners.
 
 ## Later (not before DECISIONS are answered)

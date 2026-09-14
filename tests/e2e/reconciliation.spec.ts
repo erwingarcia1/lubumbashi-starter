@@ -27,9 +27,12 @@ test("Finances reconciles the day, resolves the three exception types, closes th
   await expect(page.getByText("Rapprochement terminé.")).toBeVisible({ timeout: 60_000 });
 
   // Resolve until nothing is open, one row at a time (each action re-renders the page).
+  // Rows are matched on their text, not their accessible name: a row's name from content is
+  // empty once its cells hold interactive controls (forms, links).
   const openRow = (type: RegExp) =>
     page
-      .getByRole("row", { name: type })
+      .locator("tbody tr")
+      .filter({ hasText: type })
       .filter({ has: page.getByRole("button") })
       .first();
   const settle = async () => {

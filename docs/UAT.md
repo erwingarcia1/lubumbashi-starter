@@ -10,7 +10,7 @@ sont pas envoyés : ils sont visibles dans les journaux du serveur. Rien ici n'e
 
 | Surface | Adresse | Identifiants |
 | --- | --- | --- |
-| Tableau de bord Mairie (ordinateur) | https://13-244-143-138.sslip.io/admin/login | `admin@lubumbashi.cd` (Administrateur), `maire@lubumbashi.cd`, `ngoy.k@lubumbashi.cd` (Finances), `ilunga.m@lubumbashi.cd` (Superviseur), `auditeur@lubumbashi.cd` — mot de passe `Lubumbashi2026!` |
+| Tableau de bord Mairie (ordinateur, tablette ou téléphone : sur un écran étroit, le menu s'ouvre par le bouton ☰ en haut à gauche) | https://13-244-143-138.sslip.io/admin/login | `admin@lubumbashi.cd` (Administrateur), `maire@lubumbashi.cd`, `ngoy.k@lubumbashi.cd` (Finances), `ilunga.m@lubumbashi.cd` (Superviseur), `auditeur@lubumbashi.cd` — mot de passe `Lubumbashi2026!` |
 | Application agent (téléphone / terminal Android, Chrome) | https://13-244-143-138.sslip.io/agent/login | matricule `AG-KAM-007`, PIN `123456` |
 | Portail contribuable (téléphone) | bouton « Lien de démonstration » sur https://13-244-143-138.sslip.io | aucun mot de passe : le lien est l'accès (contribuable LUB-KAM-00000125, 10 000 FC dus) |
 
@@ -33,7 +33,7 @@ l'écran d'accueil ». Autoriser la caméra et la position quand Chrome le deman
 4. Ouvrir l'**avis d'imposition** (lien dans le détail) : « Avis authentique », montant, échéance, QR ; un lien modifié affiche « Avis inconnu ».
 5. Depuis un autocollant (`/q/LUB-KAM-00000127`) : « Recevoir mon lien par SMS » ne montre jamais le solde.
 
-### C. Tableau de bord Mairie (ordinateur)
+### C. Tableau de bord Mairie (ordinateur ; les mêmes écrans s'adaptent à la tablette et au téléphone)
 1. `maire@` → **Vue d'ensemble** : recensés, émis, encaissé, taux, impayés, barres par jour et par canal, alertes.
 2. **Recettes** : filtres par période, commune, taxe, canal, agent ; tableau des transactions.
 3. **Carte** : points colorés sur Kampemba, clic → fiche. Changer la commune, le statut ou l'agent à la souris s'applique immédiatement ; au clavier, valider avec Entrée ou quitter le champ (ou « Rechercher »). Les données de démonstration ne couvrent que Kampemba (commune pilote) : une autre commune affiche la carte centrée sur cette commune avec « Aucun contribuable recensé pour ces filtres » ; « Toutes les communes » montre tous les points.

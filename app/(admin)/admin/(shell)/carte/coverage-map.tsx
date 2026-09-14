@@ -41,7 +41,7 @@ export function CoverageMap({
       : { center: view.center, zoom: view.zoom };
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-[#D9E2DB]"
+      className="relative overflow-hidden rounded-lg border border-[#D9E2DB] max-md:[&_.leaflet-bar_a]:h-11! max-md:[&_.leaflet-bar_a]:w-11! max-md:[&_.leaflet-bar_a]:leading-11!"
       data-testid="coverage-map"
     >
       <MapContainer
@@ -75,7 +75,7 @@ export function CoverageMap({
           </CircleMarker>
         ))}
       </MapContainer>
-      <div className="absolute right-2.5 bottom-2.5 z-[1000] grid gap-1 rounded-md bg-white px-2.5 py-2 text-[11px]">
+      <div className="absolute right-2.5 bottom-6 z-[1000] flex max-w-[calc(100%-1.25rem)] flex-wrap justify-end gap-x-3 gap-y-1 rounded-md bg-white px-2.5 py-2 text-[11px] md:grid md:justify-normal md:gap-1">
         {(["paid", "due", "late"] as const).map((k) => (
           <span key={k} className="flex items-center gap-1.5">
             <i
@@ -91,14 +91,14 @@ export function CoverageMap({
         </span>
       </div>
       {!maptilerKey ? (
-        <div className="pointer-events-none absolute top-2.5 left-2.5 z-[1000] rounded bg-white/90 px-2 py-1 text-[11px] text-[#5C5456]">
+        <div className="pointer-events-none absolute top-2.5 left-16 z-[1000] rounded bg-white/90 px-2 py-1 text-[11px] text-[#5C5456] md:left-13">
           {M.noKey}
         </div>
       ) : null}
       {points.length === 0 ? (
         <div
           role="status"
-          className="pointer-events-none absolute top-1/2 left-1/2 z-[1000] -translate-x-1/2 -translate-y-1/2 rounded-md bg-white/95 px-4 py-2.5 text-[13px] font-semibold text-[#5C5456] shadow"
+          className="pointer-events-none absolute top-1/2 left-1/2 z-[1000] w-max max-w-[calc(100%-1.25rem)] -translate-x-1/2 -translate-y-1/2 rounded-md bg-white/95 px-4 py-2.5 text-center text-[13px] font-semibold text-[#5C5456] shadow"
         >
           {M.empty}
         </div>

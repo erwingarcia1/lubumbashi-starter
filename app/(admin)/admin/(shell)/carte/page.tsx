@@ -46,7 +46,8 @@ export default async function MapPage({
     due: points.filter((p) => p.pill === "due").length,
     late: points.filter((p) => p.pill === "late").length,
   };
-  const sel = "h-8 rounded-md border border-[#D5CFCF] bg-white px-2";
+  const sel =
+    "h-11 w-full min-w-0 rounded-md border border-[#D5CFCF] bg-white px-2 md:h-8 md:w-auto";
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
@@ -56,7 +57,7 @@ export default async function MapPage({
         {/* Keyed on the filters: a soft navigation (sidebar "Carte") must reset the uncontrolled selects. */}
         <MapFilters
           key={`${communeCode ?? ""}|${sp.statut ?? ""}|${sp.agent ?? ""}`}
-          className="ml-auto flex flex-wrap gap-1.5 text-[12px]"
+          className="grid w-full grid-cols-2 gap-2 text-base md:ml-auto md:flex md:w-auto md:flex-wrap md:gap-1.5 md:text-[12px]"
         >
           <select
             name="commune"
@@ -96,7 +97,7 @@ export default async function MapPage({
           </select>
           <button
             type="submit"
-            className="h-8 rounded-md border border-[#D5CFCF] bg-white px-3 font-semibold"
+            className="h-11 w-full rounded-md border border-[#D5CFCF] bg-white px-3 font-semibold md:h-8 md:w-auto"
           >
             {t.common.search}
           </button>
@@ -107,14 +108,17 @@ export default async function MapPage({
         view={view}
         maptilerKey={process.env.NEXT_PUBLIC_MAPTILER_KEY ?? null}
       />
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         {[
           [M.kpis.paid, counts.paid, "text-ok"],
           [M.kpis.due, counts.due, "text-warn"],
           [M.kpis.late, counts.late, "text-[#C1121F]"],
           [M.kpis.nv, "—", "text-[#8E8688]"],
         ].map(([l, v, cls]) => (
-          <div key={String(l)} className="rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3">
+          <div
+            key={String(l)}
+            className="min-w-0 rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3 break-words"
+          >
             <div className="text-[11.5px] font-semibold tracking-wide text-[#5C5456] uppercase">
               {l}
             </div>

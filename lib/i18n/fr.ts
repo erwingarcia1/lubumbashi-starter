@@ -417,6 +417,8 @@ export const fr = {
     connectedAs: "Connecté :",
     role: "Rôle :",
     signOut: "Se déconnecter",
+    menuOpen: "Ouvrir le menu",
+    menuClose: "Fermer le menu",
     audit: {
       title: "Journal d’audit",
       subtitle: "Actions sensibles · ajout seul",
@@ -486,6 +488,7 @@ export const fr = {
     reports: {
       title: "Rapports & exports",
       generate: "Générer",
+      format: "Format",
       period: "Période",
       day: "Journée",
       formats: { xlsx: "Excel", pdf: "PDF", csv: "CSV" },

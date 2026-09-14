@@ -53,16 +53,24 @@ export default async function CollectionsPage({
     }),
   ]);
   const C = t.admin.collections;
-  const sel = "h-8 rounded-md border border-[#D5CFCF] bg-white px-2";
+  // Phones: 44 px controls filling a two-column grid. From md the compact 32 px desktop controls.
+  const sel =
+    "h-11 w-full min-w-0 rounded-md border border-[#D5CFCF] bg-white px-2 md:h-8 md:w-auto";
+  const btn =
+    "inline-flex h-11 items-center justify-center rounded-md border border-[#D5CFCF] bg-white px-3 font-semibold md:h-8";
+  const num = "px-2 py-1.5 text-right font-mono whitespace-nowrap";
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-bold">{C.title}</h2>
-        <form method="get" className="ml-auto flex flex-wrap items-center gap-1.5 text-[12px]">
-          <label>
+        <form
+          method="get"
+          className="ml-auto grid w-full grid-cols-2 gap-2 text-[13px] md:flex md:w-auto md:flex-wrap md:items-center md:gap-1.5 md:text-[12px]"
+        >
+          <label className="flex min-w-0 items-center gap-1 md:inline">
             {C.from} <input type="date" name="du" defaultValue={from} className={sel} />
           </label>
-          <label>
+          <label className="flex min-w-0 items-center gap-1 md:inline">
             {C.to} <input type="date" name="au" defaultValue={to} className={sel} />
           </label>
           <select name="commune" defaultValue={sp.commune ?? ""} className={sel}>
@@ -105,22 +113,24 @@ export default async function CollectionsPage({
               </option>
             ))}
           </select>
-          <select name="groupe" defaultValue={groupBy} className={sel} aria-label={C.groupBy}>
+          <select
+            name="groupe"
+            defaultValue={groupBy}
+            className={`${sel} col-span-2 md:col-span-1`}
+            aria-label={C.groupBy}
+          >
             {(["day", "week", "month", "year"] as const).map((g) => (
               <option key={g} value={g}>
                 {C.groupBy} : {C.groups[g]}
               </option>
             ))}
           </select>
-          <button
-            type="submit"
-            className="h-8 rounded-md border border-[#D5CFCF] bg-white px-3 font-semibold"
-          >
+          <button type="submit" className={btn}>
             {C.apply}
           </button>
           <a
             href={`/api/v1/admin/reports/monthly?format=xlsx&month=${from.slice(0, 7)}`}
-            className="h-8 rounded-md border border-[#D5CFCF] bg-white px-3 leading-8 font-semibold"
+            className={btn}
           >
             {C.exportExcel}
           </a>
@@ -130,56 +140,56 @@ export default async function CollectionsPage({
         <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
           {C.byPeriod} · {C.groups[groupBy]}
         </p>
-        <table className="mt-1 w-full text-[12.5px]">
-          <thead>
-            <tr className="text-left text-[10.5px] tracking-wider text-[#5C5456] uppercase">
-              <th className="border-b border-[#D5CFCF] px-2 py-1.5">{C.columns.period}</th>
-              <th className="border-b border-[#D5CFCF] px-2 py-1.5 text-right">
-                {C.columns.count}
-              </th>
-              <th className="border-b border-[#D5CFCF] px-2 py-1.5 text-right">
-                {C.columns.collected}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {report.byPeriod.length === 0 ? (
-              <tr>
-                <td colSpan={3} className="px-2 py-2 text-[#5C5456]">
-                  {t.common.none}
-                </td>
+        <div className="mt-1 overflow-x-auto">
+          <table className="w-full text-[12.5px]">
+            <thead>
+              <tr className="text-left text-[10.5px] tracking-wider text-[#5C5456] uppercase">
+                <th className="border-b border-[#D5CFCF] px-2 py-1.5">{C.columns.period}</th>
+                <th className="border-b border-[#D5CFCF] px-2 py-1.5 text-right whitespace-nowrap">
+                  {C.columns.count}
+                </th>
+                <th className="border-b border-[#D5CFCF] px-2 py-1.5 text-right whitespace-nowrap">
+                  {C.columns.collected}
+                </th>
               </tr>
-            ) : null}
-            {report.byPeriod.map((r) => (
-              <tr key={r.period} className="border-b border-[#EFEAEA]">
-                <td className="px-2 py-1.5">
-                  {groupBy === "year"
-                    ? r.period.slice(0, 4)
-                    : groupBy === "month"
-                      ? formatMonthFr(r.period)
-                      : groupBy === "week"
-                        ? `${C.weekOf} ${formatDateFr(r.period)}`
-                        : formatDateFr(r.period)}
-                </td>
-                <td className="px-2 py-1.5 text-right font-mono">{r.count}</td>
-                <td className="px-2 py-1.5 text-right font-mono">{formatFC(r.amountFc)}</td>
-              </tr>
-            ))}
-            {report.byPeriod.length > 0 ? (
-              <tr className="font-semibold">
-                <td className="px-2 py-1.5">{t.common.all}</td>
-                <td className="px-2 py-1.5 text-right font-mono">
-                  {report.byPeriod.reduce((a, r) => a + r.count, 0)}
-                </td>
-                <td className="px-2 py-1.5 text-right font-mono">
-                  {formatFC(report.byPeriod.reduce((a, r) => a + r.amountFc, 0))}
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {report.byPeriod.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-2 py-2 text-[#5C5456]">
+                    {t.common.none}
+                  </td>
+                </tr>
+              ) : null}
+              {report.byPeriod.map((r) => (
+                <tr key={r.period} className="border-b border-[#EFEAEA]">
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {groupBy === "year"
+                      ? r.period.slice(0, 4)
+                      : groupBy === "month"
+                        ? formatMonthFr(r.period)
+                        : groupBy === "week"
+                          ? `${C.weekOf} ${formatDateFr(r.period)}`
+                          : formatDateFr(r.period)}
+                  </td>
+                  <td className={num}>{r.count}</td>
+                  <td className={num}>{formatFC(r.amountFc)}</td>
+                </tr>
+              ))}
+              {report.byPeriod.length > 0 ? (
+                <tr className="font-semibold">
+                  <td className="px-2 py-1.5">{t.common.all}</td>
+                  <td className={num}>{report.byPeriod.reduce((a, r) => a + r.count, 0)}</td>
+                  <td className={num}>
+                    {formatFC(report.byPeriod.reduce((a, r) => a + r.amountFc, 0))}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-[1.4fr_1fr]">
         <div className="rounded-lg border border-[#E3DEDE] bg-white p-3.5">
           <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
             {C.byCommune}
@@ -188,13 +198,15 @@ export default async function CollectionsPage({
             {report.byCommune.map((r) => (
               <div
                 key={r.commune}
-                className="grid grid-cols-[110px_1fr_60px] items-center gap-2 text-[12.5px]"
+                className="grid grid-cols-[110px_minmax(0,1fr)_60px] items-center gap-2 text-[12.5px]"
               >
-                <span>{r.commune}</span>
+                <span className="truncate">{r.commune}</span>
                 <div className="h-2.5 overflow-hidden rounded-sm bg-[#EFEAEA]">
                   <div className="bg-ok h-full" style={{ width: `${Math.min(100, r.rate)}%` }} />
                 </div>
-                <span className="text-right font-mono tabular-nums">{r.rate} %</span>
+                <span className="text-right font-mono whitespace-nowrap tabular-nums">
+                  {r.rate} %
+                </span>
               </div>
             ))}
           </div>
@@ -205,13 +217,13 @@ export default async function CollectionsPage({
             <thead>
               <tr className="text-left text-[10.5px] tracking-wider text-[#5C5456] uppercase">
                 <th className="border-b border-[#D5CFCF] px-2 py-1.5">{C.columns.tax}</th>
-                <th className="border-b border-[#D5CFCF] px-2 py-1.5 text-right">
+                <th className="border-b border-[#D5CFCF] px-2 py-1.5 text-right whitespace-nowrap">
                   {C.columns.issued}
                 </th>
-                <th className="border-b border-[#D5CFCF] px-2 py-1.5 text-right">
+                <th className="border-b border-[#D5CFCF] px-2 py-1.5 text-right whitespace-nowrap">
                   {C.columns.collected}
                 </th>
-                <th className="border-b border-[#D5CFCF] px-2 py-1.5 text-right">
+                <th className="border-b border-[#D5CFCF] px-2 py-1.5 text-right whitespace-nowrap">
                   {C.columns.rate}
                 </th>
               </tr>
@@ -220,13 +232,9 @@ export default async function CollectionsPage({
               {report.byTax.map((r) => (
                 <tr key={r.label} className="border-b border-[#EFEAEA]">
                   <td className="px-2 py-1.5">{r.label}</td>
-                  <td className="px-2 py-1.5 text-right font-mono">
-                    {r.issuedFc.toLocaleString("fr-FR")}
-                  </td>
-                  <td className="px-2 py-1.5 text-right font-mono">
-                    {r.collectedFc.toLocaleString("fr-FR")}
-                  </td>
-                  <td className="px-2 py-1.5 text-right font-mono">{r.rate} %</td>
+                  <td className={num}>{r.issuedFc.toLocaleString("fr-FR")}</td>
+                  <td className={num}>{r.collectedFc.toLocaleString("fr-FR")}</td>
+                  <td className={num}>{r.rate} %</td>
                 </tr>
               ))}
             </tbody>
@@ -245,14 +253,17 @@ export default async function CollectionsPage({
                 C.columns.channel,
                 C.columns.agent,
               ].map((h) => (
-                <th key={h} className="border-b border-[#D5CFCF] px-2.5 py-2 font-semibold">
+                <th
+                  key={h}
+                  className="border-b border-[#D5CFCF] px-2.5 py-2 font-semibold whitespace-nowrap"
+                >
                   {h}
                 </th>
               ))}
-              <th className="border-b border-[#D5CFCF] px-2.5 py-2 text-right font-semibold">
+              <th className="border-b border-[#D5CFCF] px-2.5 py-2 text-right font-semibold whitespace-nowrap">
                 {C.columns.amount}
               </th>
-              <th className="border-b border-[#D5CFCF] px-2.5 py-2 font-semibold">
+              <th className="border-b border-[#D5CFCF] px-2.5 py-2 font-semibold whitespace-nowrap">
                 {C.columns.status}
               </th>
             </tr>
@@ -267,17 +278,23 @@ export default async function CollectionsPage({
             ) : null}
             {report.rows.map((r) => (
               <tr key={r.reference} className="border-b border-[#EFEAEA]">
-                <td className="px-2.5 py-2 font-mono">{formatDateTimeFr(r.at)}</td>
-                <td className="px-2.5 py-2 font-mono">{r.receiptNo ?? t.common.none}</td>
+                <td className="px-2.5 py-2 font-mono whitespace-nowrap lg:whitespace-normal xl:whitespace-nowrap">
+                  {formatDateTimeFr(r.at)}
+                </td>
+                <td className="px-2.5 py-2 font-mono whitespace-nowrap">
+                  {r.receiptNo ?? t.common.none}
+                </td>
                 <td className="px-2.5 py-2">{r.taxpayerName}</td>
                 <td className="px-2.5 py-2">{r.taxLabel}</td>
-                <td className="px-2.5 py-2">
+                <td className="px-2.5 py-2 whitespace-nowrap lg:whitespace-normal xl:whitespace-nowrap">
                   {t.status.channel[r.channel as keyof typeof t.status.channel] ?? r.channel}
                 </td>
-                <td className="px-2.5 py-2 font-mono">
+                <td className="px-2.5 py-2 font-mono whitespace-nowrap">
                   {r.agentMatricule ?? (r.origin === "portal" ? C.portal : C.counter)}
                 </td>
-                <td className="px-2.5 py-2 text-right font-mono">{formatFC(r.amountFc)}</td>
+                <td className="px-2.5 py-2 text-right font-mono whitespace-nowrap">
+                  {formatFC(r.amountFc)}
+                </td>
                 <td className="px-2.5 py-2">
                   <Pill tone={r.status === "confirmed" ? "ok" : "bad"}>
                     {t.status.payment[r.status as keyof typeof t.status.payment]}

@@ -36,7 +36,7 @@ export default async function SettingsPage({
           <thead>
             <tr className="text-left text-[10.5px] tracking-wider text-[#5C5456] uppercase">
               {[S.email, S.fullName, S.role, S.status, S.since, t.common.actions].map((h) => (
-                <th key={h} className="border-b border-[#D5CFCF] px-2.5 py-2">
+                <th key={h} className="border-b border-[#D5CFCF] px-2.5 py-2 whitespace-nowrap">
                   {h}
                 </th>
               ))}
@@ -45,9 +45,9 @@ export default async function SettingsPage({
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className="border-b border-[#EFEAEA] align-middle">
-                <td className="px-2.5 py-2 font-mono">{u.email}</td>
-                <td className="px-2.5 py-2">{u.fullName}</td>
-                <td className="px-2.5 py-2">
+                <td className="px-2.5 py-2 font-mono whitespace-nowrap">{u.email}</td>
+                <td className="px-2.5 py-2 whitespace-nowrap">{u.fullName}</td>
+                <td className="px-2.5 py-2 whitespace-nowrap">
                   {u.id === session.adminId ? (
                     t.roles[u.role]
                   ) : (
@@ -57,7 +57,7 @@ export default async function SettingsPage({
                         name="role"
                         defaultValue={u.role}
                         aria-label={`${S.role} ${u.email}`}
-                        className="h-8 rounded-md border border-[#D5CFCF] bg-white px-2"
+                        className="h-11 rounded-md border border-[#D5CFCF] bg-white px-2 text-[16px] md:h-8 md:text-[12.5px]"
                       >
                         {ADMIN_ROLES.map((r) => (
                           <option key={r} value={r}>
@@ -67,21 +67,23 @@ export default async function SettingsPage({
                       </select>
                       <button
                         type="submit"
-                        className="h-8 rounded-md border border-[#D5CFCF] bg-white px-2 text-[11.5px] font-semibold"
+                        className="h-11 rounded-md border border-[#D5CFCF] bg-white px-2 text-[11.5px] font-semibold md:h-8"
                       >
                         {S.changeRole}
                       </button>
                     </form>
                   )}
                 </td>
-                <td className="px-2.5 py-2">
+                <td className="px-2.5 py-2 whitespace-nowrap">
                   <Pill tone={u.active ? "ok" : "bad"}>{u.active ? S.active : S.disabled}</Pill>
                   {!u.linked ? (
                     <span className="ml-1 text-[11px] text-[#5C5456]">{S.notLinked}</span>
                   ) : null}
                 </td>
-                <td className="px-2.5 py-2 font-mono">{formatDateFr(u.createdAt)}</td>
-                <td className="px-2.5 py-2">
+                <td className="px-2.5 py-2 font-mono whitespace-nowrap">
+                  {formatDateFr(u.createdAt)}
+                </td>
+                <td className="px-2.5 py-2 whitespace-nowrap">
                   {u.id === session.adminId ? (
                     <span className="text-[11.5px] text-[#5C5456]">{S.you}</span>
                   ) : (
@@ -90,7 +92,7 @@ export default async function SettingsPage({
                       <input type="hidden" name="active" value={u.active ? "0" : "1"} />
                       <button
                         type="submit"
-                        className={`h-8 rounded-md px-2.5 text-[11.5px] font-semibold ${u.active ? "bg-[#C1121F] text-white" : "border border-[#D5CFCF] bg-white"}`}
+                        className={`h-11 rounded-md px-2.5 text-[11.5px] font-semibold md:h-8 ${u.active ? "bg-[#C1121F] text-white" : "border border-[#D5CFCF] bg-white"}`}
                       >
                         {u.active ? S.disable : S.enable}
                       </button>

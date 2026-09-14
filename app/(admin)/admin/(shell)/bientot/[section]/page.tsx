@@ -13,8 +13,8 @@ const LABELS: Record<string, string> = {
 export default async function ComingSoonPage({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;
   return (
-    <div>
-      <h2 className="text-lg font-bold">{LABELS[section] ?? section}</h2>
+    <div className="min-w-0">
+      <h2 className="text-lg font-bold wrap-anywhere">{LABELS[section] ?? section}</h2>
       <p className="text-[12.5px] text-[#5C5456]">{t.common.comingSoon}</p>
     </div>
   );

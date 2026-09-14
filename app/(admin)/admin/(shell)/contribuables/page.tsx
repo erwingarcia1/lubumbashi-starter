@@ -13,6 +13,16 @@ import { Pill } from "../../_components/pill";
 
 const tone = { paid: "ok", due: "warn", late: "bad" } as const;
 
+// Below md the filters stack in a two-column grid with ≥44 px controls; from md on they form the
+// single row of the prototype (the search box flexes on tablets so the row never wraps).
+const selectClass =
+  "h-11 w-full min-w-0 rounded-md border border-[#D5CFCF] bg-white px-2 max-md:text-base md:h-8 md:w-auto";
+// Cells: taller rows on phones so the identifier link is a comfortable tap target.
+const cell = "px-2.5 py-3.5 md:py-2";
+// The identifier column stays visible while the table scrolls sideways below the desktop width.
+const stickyCell =
+  "max-xl:sticky max-xl:left-0 max-xl:z-[1] max-xl:bg-white max-xl:shadow-[inset_-1px_0_0_#EFEAEA] max-xl:group-hover:bg-[#FFF6F6]";
+
 export default async function TaxpayersPage({
   searchParams,
 }: {
@@ -39,18 +49,17 @@ export default async function TaxpayersPage({
     <>
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-bold">{t.admin.taxpayers.title}</h2>
-        <form className="ml-auto flex flex-wrap items-center gap-1.5 text-[12px]" method="get">
+        <form
+          className="ml-auto grid w-full grid-cols-2 gap-2 text-[12px] md:flex md:w-auto md:flex-wrap md:items-center md:gap-1.5"
+          method="get"
+        >
           <Input
             name="q"
             placeholder={`🔍 ${t.admin.taxpayers.searchPlaceholder}`}
             defaultValue={sp.q ?? ""}
-            className="h-8 w-56"
+            className="col-span-2 h-11 md:h-8 md:flex-1 lg:w-56 lg:flex-none"
           />
-          <select
-            name="commune"
-            defaultValue={sp.commune ?? ""}
-            className="h-8 rounded-md border border-[#D5CFCF] bg-white px-2"
-          >
+          <select name="commune" defaultValue={sp.commune ?? ""} className={selectClass}>
             <option value="">
               {t.admin.taxpayers.commune} : {t.common.all}
             </option>
@@ -60,11 +69,7 @@ export default async function TaxpayersPage({
               </option>
             ))}
           </select>
-          <select
-            name="statut"
-            defaultValue={sp.statut ?? ""}
-            className="h-8 rounded-md border border-[#D5CFCF] bg-white px-2"
-          >
+          <select name="statut" defaultValue={sp.statut ?? ""} className={selectClass}>
             <option value="">
               {t.admin.taxpayers.status} : {t.common.all}
             </option>
@@ -72,7 +77,7 @@ export default async function TaxpayersPage({
             <option value="due">{t.status.pill.due}</option>
             <option value="late">{t.status.pill.late}</option>
           </select>
-          <Button type="submit" size="sm" variant="outline">
+          <Button type="submit" size="sm" variant="outline" className="col-span-2 h-11 md:h-7">
             {t.common.search}
           </Button>
         </form>
@@ -81,18 +86,23 @@ export default async function TaxpayersPage({
         <table className="w-full text-[12.5px]">
           <thead>
             <tr className="text-left text-[10.5px] tracking-wider text-[#5C5456] uppercase">
-              {[c.id, c.name, c.type, c.quartier, c.phone].map((h) => (
-                <th key={h} className="border-b border-[#D5CFCF] px-2.5 py-2 font-semibold">
+              {[c.id, c.name, c.type, c.quartier, c.phone].map((h, i) => (
+                <th
+                  key={h}
+                  className={`border-b border-[#D5CFCF] px-2.5 py-2 font-semibold whitespace-nowrap ${i === 0 ? stickyCell : ""}`}
+                >
                   {h}
                 </th>
               ))}
-              <th className="border-b border-[#D5CFCF] px-2.5 py-2 text-right font-semibold">
+              <th className="border-b border-[#D5CFCF] px-2.5 py-2 text-right font-semibold whitespace-nowrap">
                 {c.due}
               </th>
-              <th className="border-b border-[#D5CFCF] px-2.5 py-2 text-right font-semibold">
+              <th className="border-b border-[#D5CFCF] px-2.5 py-2 text-right font-semibold whitespace-nowrap">
                 {c.paid}
               </th>
-              <th className="border-b border-[#D5CFCF] px-2.5 py-2 font-semibold">{c.status}</th>
+              <th className="border-b border-[#D5CFCF] px-2.5 py-2 font-semibold whitespace-nowrap">
+                {c.status}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -104,22 +114,26 @@ export default async function TaxpayersPage({
               </tr>
             ) : null}
             {items.map((r) => (
-              <tr key={r.taxpayerNo} className="border-b border-[#EFEAEA] hover:bg-[#FFF6F6]">
-                <td className="px-2.5 py-2 font-mono">
+              <tr key={r.taxpayerNo} className="group border-b border-[#EFEAEA] hover:bg-[#FFF6F6]">
+                <td className={`${cell} font-mono whitespace-nowrap ${stickyCell}`}>
                   <Link
                     href={`/admin/contribuables/${r.taxpayerNo}` as never}
-                    className="text-[#C1121F] underline-offset-2 hover:underline"
+                    className="text-[#C1121F] underline-offset-2 hover:underline max-md:-my-3.5 max-md:block max-md:py-3.5"
                   >
                     {r.taxpayerNo}
                   </Link>
                 </td>
-                <td className="px-2.5 py-2">{r.fullName}</td>
-                <td className="px-2.5 py-2">{r.categoryLabel ?? t.common.none}</td>
-                <td className="px-2.5 py-2">{r.quartier ?? t.common.none}</td>
-                <td className="px-2.5 py-2 font-mono">{r.phone}</td>
-                <td className="px-2.5 py-2 text-right font-mono">{formatFC(r.balance.issuedFc)}</td>
-                <td className="px-2.5 py-2 text-right font-mono">{formatFC(r.balance.paidFc)}</td>
-                <td className="px-2.5 py-2">
+                <td className={`${cell} min-w-32`}>{r.fullName}</td>
+                <td className={cell}>{r.categoryLabel ?? t.common.none}</td>
+                <td className={cell}>{r.quartier ?? t.common.none}</td>
+                <td className={`${cell} font-mono`}>{r.phone}</td>
+                <td className={`${cell} text-right font-mono whitespace-nowrap`}>
+                  {formatFC(r.balance.issuedFc)}
+                </td>
+                <td className={`${cell} text-right font-mono whitespace-nowrap`}>
+                  {formatFC(r.balance.paidFc)}
+                </td>
+                <td className={cell}>
                   <Pill tone={tone[r.balance.pill]}>{t.status.pill[r.balance.pill]}</Pill>
                 </td>
               </tr>

@@ -71,17 +71,20 @@ export default async function TaxpayerPage({
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <Link href="/admin/contribuables" className="text-[12.5px] text-[#C1121F] underline">
+        <Link
+          href="/admin/contribuables"
+          className="inline-flex min-h-11 items-center text-[12.5px] text-[#C1121F] underline md:min-h-0"
+        >
           ← {t.common.back}
         </Link>
-        <h2 className="text-lg font-bold">{d.taxpayer.fullName}</h2>
+        <h2 className="min-w-0 text-lg font-bold break-words">{d.taxpayer.fullName}</h2>
         <Pill tone={pillTone[d.balance.pill]}>{t.status.pill[d.balance.pill]}</Pill>
       </div>
       <Banner ok={okMessage} error={error} />
-      <div className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
-        <div className="flex flex-col gap-3">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-3">
           <div className="rounded-lg border border-[#E3DEDE] bg-white p-3.5">
-            <div className="grid gap-x-4 text-[13.5px] md:grid-cols-2">
+            <div className="grid gap-x-4 text-[13.5px] md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               {[
                 [
                   D.id,
@@ -111,8 +114,8 @@ export default async function TaxpayerPage({
                   key={i}
                   className="flex justify-between gap-2 border-b border-[#EFEAEA] py-1.5"
                 >
-                  <span className="text-[#5C5456]">{k}</span>
-                  <b className="font-semibold">{v}</b>
+                  <span className="shrink-0 text-[#5C5456]">{k}</span>
+                  <b className="min-w-0 text-right font-semibold break-words">{v}</b>
                 </div>
               ))}
             </div>
@@ -148,7 +151,7 @@ export default async function TaxpayerPage({
             <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
               {D.obligations}
             </p>
-            <table className="mt-1.5 w-full text-[12.5px]">
+            <table className="mt-1.5 w-full text-[12.5px] whitespace-nowrap md:whitespace-normal">
               <thead>
                 <tr className="text-left text-[10.5px] tracking-wider text-[#5C5456] uppercase">
                   <th className="border-b border-[#D5CFCF] px-2 py-1.5">{D.columns.tax}</th>
@@ -193,7 +196,7 @@ export default async function TaxpayerPage({
             <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
               {D.payments}
             </p>
-            <table className="mt-1.5 w-full text-[12.5px]">
+            <table className="mt-1.5 w-full text-[12.5px] whitespace-nowrap md:whitespace-normal">
               <thead>
                 <tr className="text-left text-[10.5px] tracking-wider text-[#5C5456] uppercase">
                   <th className="border-b border-[#D5CFCF] px-2 py-1.5">{D.columns.date}</th>
@@ -234,7 +237,7 @@ export default async function TaxpayerPage({
                       {canReverse && p.status === "confirmed" ? (
                         <form
                           action={reversePaymentAction}
-                          className="mt-1 flex items-center gap-1"
+                          className="mt-1 flex flex-wrap items-center gap-1"
                         >
                           <input type="hidden" name="taxpayerNo" value={d.taxpayer.taxpayerNo} />
                           <input type="hidden" name="reference" value={p.reference} />
@@ -244,11 +247,11 @@ export default async function TaxpayerPage({
                             minLength={5}
                             placeholder={D.reverseReason}
                             aria-label={`${D.reverseReason} ${p.reference}`}
-                            className="h-7 w-36 rounded-md border border-[#D5CFCF] px-1.5 text-[11.5px]"
+                            className="h-11 w-36 rounded-md border border-[#D5CFCF] px-1.5 text-[11.5px] md:h-7"
                           />
                           <button
                             type="submit"
-                            className="text-bad h-7 rounded-md border border-[#D5CFCF] bg-white px-2 text-[11px] font-semibold"
+                            className="text-bad h-11 shrink-0 rounded-md border border-[#D5CFCF] bg-white px-2 text-[11px] font-semibold whitespace-nowrap md:h-7"
                           >
                             {D.reverse}
                           </button>
@@ -261,13 +264,13 @@ export default async function TaxpayerPage({
             </table>
           </div>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3">
           <div className="grid h-44 place-items-center rounded-lg border border-[#D9E2DB] bg-[#E8EFE9] text-[12.5px] text-[#4E5E52]">
             {D.mapSoon}
           </div>
           {editable ? (
             <details className="rounded-lg border border-[#E3DEDE] bg-white p-3.5">
-              <summary className="cursor-pointer text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
+              <summary className="-m-3.5 cursor-pointer p-3.5 text-[13px] font-bold tracking-wide text-[#5C5456] uppercase md:m-0 md:p-0">
                 {D.editContact}
               </summary>
               <form action={updateContactAction} className="mt-2 flex flex-col gap-2">
@@ -279,11 +282,17 @@ export default async function TaxpayerPage({
                   defaultValue={d.taxpayer.phone}
                   pattern="^\+[1-9][0-9]{6,14}$"
                   required
-                  className="font-mono"
+                  className="h-11 font-mono md:h-8"
                 />
                 <Label htmlFor="address">{D.address}</Label>
-                <Input id="address" name="address" defaultValue={d.taxpayer.address} required />
-                <Button type="submit" size="sm" className="self-start">
+                <Input
+                  id="address"
+                  name="address"
+                  defaultValue={d.taxpayer.address}
+                  required
+                  className="h-11 md:h-8"
+                />
+                <Button type="submit" size="sm" className="h-11 self-start md:h-7">
                   {t.common.save}
                 </Button>
               </form>
@@ -291,7 +300,7 @@ export default async function TaxpayerPage({
           ) : null}
           {editable && firstEntity ? (
             <details className="rounded-lg border border-[#E3DEDE] bg-white p-3.5">
-              <summary className="cursor-pointer text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
+              <summary className="-m-3.5 cursor-pointer p-3.5 text-[13px] font-bold tracking-wide text-[#5C5456] uppercase md:m-0 md:p-0">
                 {D.changeCategory}
               </summary>
               <form action={changeCategoryAction} className="mt-2 flex flex-col gap-2">
@@ -302,7 +311,7 @@ export default async function TaxpayerPage({
                   id="categoryCode"
                   name="categoryCode"
                   defaultValue={firstEntity.categoryCode}
-                  className="h-9 rounded-md border border-[#D5CFCF] bg-white px-2 text-[13px]"
+                  className="h-11 rounded-md border border-[#D5CFCF] bg-white px-2 text-[13px] md:h-9"
                 >
                   {d.categories.map((c) => (
                     <option key={c.code} value={c.code}>
@@ -312,7 +321,7 @@ export default async function TaxpayerPage({
                 </select>
                 <Label htmlFor="reason">{D.reason}</Label>
                 <Textarea id="reason" name="reason" rows={2} minLength={5} required />
-                <Button type="submit" size="sm" className="self-start">
+                <Button type="submit" size="sm" className="h-11 self-start md:h-7">
                   {t.common.save}
                 </Button>
               </form>
@@ -329,7 +338,7 @@ export default async function TaxpayerPage({
               {d.journal.map((e) => (
                 <div
                   key={e.id}
-                  className="grid grid-cols-[110px_1fr] gap-2 border-b border-[#EFEAEA] py-1.5 text-[12.5px] last:border-0"
+                  className="grid grid-cols-[110px_minmax(0,1fr)] gap-2 border-b border-[#EFEAEA] py-1.5 text-[12.5px] break-words last:border-0"
                 >
                   <span className="font-mono text-[11.5px] text-[#5C5456]">
                     {formatDateTimeFr(e.createdAt)}

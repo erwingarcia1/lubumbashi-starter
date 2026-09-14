@@ -50,7 +50,7 @@ export default async function ReconciliationPage({
         <h2 className="text-lg font-bold">
           {R.title} · {formatDateFr(day)}
         </h2>
-        <form method="get" className="flex items-center gap-2 text-[12.5px]">
+        <form method="get" className="flex flex-wrap items-center gap-2 text-[12.5px]">
           <label htmlFor="day" className="text-[#5C5456]">
             {R.day}
           </label>
@@ -60,13 +60,16 @@ export default async function ReconciliationPage({
             type="date"
             defaultValue={day}
             max={today}
-            className="h-8 rounded-md border border-[#D5CFCF] bg-white px-2"
+            className="h-11 min-w-0 rounded-md border border-[#D5CFCF] bg-white px-2 md:h-8"
           />
-          <button type="submit" className="h-8 rounded-md border border-[#D5CFCF] bg-white px-3">
+          <button
+            type="submit"
+            className="h-11 rounded-md border border-[#D5CFCF] bg-white px-3 md:h-8"
+          >
             {t.common.search}
           </button>
         </form>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 md:ml-auto">
           {view.runs.map(({ provider, run }) => (
             <Pill
               key={provider}
@@ -96,7 +99,7 @@ export default async function ReconciliationPage({
               <PendingButton
                 label={R.run}
                 pendingLabel={R.running}
-                className="h-8 rounded-md bg-[#C1121F] px-3 text-[12.5px] font-semibold text-white disabled:opacity-60"
+                className="h-11 rounded-md bg-[#C1121F] px-3 text-[12.5px] font-semibold text-white disabled:opacity-60 md:h-8"
               />
             </form>
           ) : null}
@@ -105,7 +108,7 @@ export default async function ReconciliationPage({
       <Banner ok={okMessage} error={error} />
       {!canAct ? <p className="text-[12.5px] text-[#5C5456]">{R.readOnly}</p> : null}
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
           [
             R.kpi.platform,
@@ -120,7 +123,10 @@ export default async function ReconciliationPage({
           [R.kpi.matched, String(view.totals.matchedCount), ""],
           [R.kpi.exceptions, String(open.length), open.length ? R.kpi.toHandle : ""],
         ].map(([label, value, sub]) => (
-          <div key={label} className="rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3">
+          <div
+            key={label}
+            className="min-w-0 rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3"
+          >
             <div className="text-[11px] tracking-wider text-[#5C5456] uppercase">{label}</div>
             <div
               className={`font-mono text-[22px] font-bold ${label === R.kpi.exceptions && open.length ? "text-bad" : ""}`}
@@ -133,7 +139,7 @@ export default async function ReconciliationPage({
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[#E3DEDE] bg-white">
-        <table className="w-full text-[12.5px]">
+        <table className="w-full min-w-[880px] text-[12.5px]">
           <thead>
             <tr className="text-left text-[10.5px] tracking-wider text-[#5C5456] uppercase">
               {[
@@ -145,7 +151,7 @@ export default async function ReconciliationPage({
                 R.columns.taxpayer,
                 R.columns.action,
               ].map((h) => (
-                <th key={h} className="border-b border-[#D5CFCF] px-2.5 py-2">
+                <th key={h} className="border-b border-[#D5CFCF] px-2.5 py-2 whitespace-nowrap">
                   {h}
                 </th>
               ))}
@@ -184,10 +190,10 @@ export default async function ReconciliationPage({
                   ) : null}
                 </td>
                 <td className="px-2.5 py-2">{t.status.channel[e.provider]}</td>
-                <td className="px-2.5 py-2 text-right font-mono">
+                <td className="px-2.5 py-2 text-right font-mono whitespace-nowrap">
                   {e.platformAmountFc === null ? t.common.none : formatFC(e.platformAmountFc)}
                 </td>
-                <td className="px-2.5 py-2 text-right font-mono">
+                <td className="px-2.5 py-2 text-right font-mono whitespace-nowrap">
                   {e.statementAmountFc === null ? t.common.none : formatFC(e.statementAmountFc)}
                 </td>
                 <td className="px-2.5 py-2">
@@ -234,7 +240,7 @@ export default async function ReconciliationPage({
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3">
+        <div className="min-w-0 rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3">
           <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">{R.close}</p>
           {view.close ? (
             <p className="text-ok mt-2 text-[13px] font-semibold">
@@ -250,12 +256,12 @@ export default async function ReconciliationPage({
               <input
                 id="closeNote"
                 name="note"
-                className="h-9 rounded-md border border-[#D5CFCF] px-2 text-[13px]"
+                className="h-11 rounded-md border border-[#D5CFCF] px-2 text-[13px] md:h-9"
               />
               <PendingButton
                 label={R.close}
                 pendingLabel={R.closing}
-                className="h-10 rounded-md bg-[#1E7F4F] px-3 text-[13px] font-semibold text-white disabled:opacity-60"
+                className="h-11 rounded-md bg-[#1E7F4F] px-3 text-[13px] font-semibold text-white disabled:opacity-60 md:h-10"
               />
             </form>
           ) : (
@@ -268,13 +274,16 @@ export default async function ReconciliationPage({
             </p>
           )}
         </div>
-        <div className="rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3 text-[12.5px]">
+        <div className="min-w-0 rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3 text-[12.5px]">
           <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
             {R.history}
           </p>
           {history.length === 0 ? <p className="mt-2 text-[#5C5456]">{R.noHistory}</p> : null}
           {history.map((h) => (
-            <div key={h.businessDate} className="border-b border-[#EFEAEA] py-1.5 last:border-0">
+            <div
+              key={h.businessDate}
+              className="border-b border-[#EFEAEA] py-1.5 break-words last:border-0"
+            >
               <b>{formatDateFr(h.businessDate)}</b> · {formatDateTimeFr(h.closedAt).slice(6)} ·{" "}
               {h.resolved > 0 ? R.closedWith.replace("{n}", String(h.resolved)) : R.closedWithout} ·{" "}
               {h.transactionCount} {R.transactions} · {formatFC(h.totalFc)}

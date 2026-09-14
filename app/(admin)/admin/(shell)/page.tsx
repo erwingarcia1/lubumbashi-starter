@@ -67,17 +67,20 @@ export default async function OverviewPage({
     <>
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-bold">{O.title}</h2>
-        <form method="get" className="ml-auto flex flex-wrap gap-1.5 text-[12px]">
+        <form
+          method="get"
+          className="flex w-full flex-wrap gap-1.5 text-base md:ml-auto md:w-auto md:text-[12px]"
+        >
           <input
             type="month"
             name="mois"
             defaultValue={month}
-            className="h-8 rounded-md border border-[#D5CFCF] bg-white px-2"
+            className="h-11 min-w-0 grow rounded-md border border-[#D5CFCF] bg-white px-2 md:h-8 md:grow-0"
           />
           <select
             name="commune"
             defaultValue={sp.commune ?? ""}
-            className="h-8 rounded-md border border-[#D5CFCF] bg-white px-2"
+            className="h-11 min-w-0 grow rounded-md border border-[#D5CFCF] bg-white px-2 md:h-8 md:grow-0"
           >
             <option value="">
               {O.commune} : {t.common.all}
@@ -91,7 +94,7 @@ export default async function OverviewPage({
           <select
             name="taxe"
             defaultValue={sp.taxe ?? ""}
-            className="h-8 rounded-md border border-[#D5CFCF] bg-white px-2"
+            className="h-11 min-w-0 grow rounded-md border border-[#D5CFCF] bg-white px-2 md:h-8 md:grow-0"
           >
             <option value="">
               {O.tax} : {t.common.all}
@@ -104,7 +107,7 @@ export default async function OverviewPage({
           </select>
           <button
             type="submit"
-            className="h-8 rounded-md border border-[#D5CFCF] bg-white px-3 font-semibold"
+            className="h-11 grow rounded-md border border-[#D5CFCF] bg-white px-3 font-semibold md:h-8 md:grow-0"
           >
             {t.common.search}
           </button>
@@ -112,8 +115,8 @@ export default async function OverviewPage({
       </div>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2.5">
         {kpis.map(([l, v, d, tone]) => (
-          <div key={l} className="rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3">
-            <div className="text-[11.5px] font-semibold tracking-wide text-[#5C5456] uppercase">
+          <div key={l} className="min-w-0 rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3">
+            <div className="text-[11.5px] font-semibold tracking-wide break-words text-[#5C5456] uppercase">
               {l}
             </div>
             <div className="mt-0.5 text-[22px] font-bold tracking-tight tabular-nums">{v}</div>
@@ -127,8 +130,8 @@ export default async function OverviewPage({
           </div>
         ))}
       </div>
-      <div className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-lg border border-[#E3DEDE] bg-white p-3.5">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <div className="min-w-0 rounded-lg border border-[#E3DEDE] bg-white p-3.5">
           <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">{O.daily}</p>
           <div
             className="mt-2.5 flex h-[130px] items-end gap-1.5 border-b border-[#E3DEDE] pb-1"
@@ -148,7 +151,7 @@ export default async function OverviewPage({
             <span>{data.daily.at(-1)?.day.slice(5).split("-").reverse().join("/")}</span>
           </div>
         </div>
-        <div className="rounded-lg border border-[#E3DEDE] bg-white p-3.5">
+        <div className="min-w-0 rounded-lg border border-[#E3DEDE] bg-white p-3.5">
           <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
             {O.byChannel} · {monthLabel.format(new Date(`${month}-15T12:00:00+02:00`))}
           </p>
@@ -159,10 +162,12 @@ export default async function OverviewPage({
             {data.byChannel.map((ch) => (
               <div
                 key={ch.key}
-                className="grid grid-cols-[110px_1fr_60px] items-center gap-2 text-[12.5px]"
+                className="grid grid-cols-[110px_minmax(0,1fr)_60px] items-center gap-2 text-[12.5px]"
               >
-                <span>{t.status.channel[ch.key as keyof typeof t.status.channel] ?? ch.key}</span>
-                <div className="h-2.5 overflow-hidden rounded-sm bg-[#EFEAEA]">
+                <span className="break-words">
+                  {t.status.channel[ch.key as keyof typeof t.status.channel] ?? ch.key}
+                </span>
+                <div className="h-2.5 min-w-0 overflow-hidden rounded-sm bg-[#EFEAEA]">
                   <div className="h-full bg-[#C1121F]" style={{ width: `${ch.pct}%` }} />
                 </div>
                 <span className="text-right font-mono tabular-nums">{ch.pct} %</span>
@@ -186,7 +191,7 @@ export default async function OverviewPage({
               <Link
                 key={String(label)}
                 href={String(href) as never}
-                className="flex items-center gap-2.5 border-b border-[#EFEAEA] py-2.5 last:border-0"
+                className="flex min-h-11 items-center gap-2.5 border-b border-[#EFEAEA] py-2.5 last:border-0 md:min-h-0"
               >
                 <Pill tone={tone as "bad" | "warn" | "n"}>{String(n)}</Pill>
                 <span>{String(label)}</span>

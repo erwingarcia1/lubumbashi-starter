@@ -58,10 +58,13 @@ export default async function TaxRulePage({
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <Link href="/admin/taxes" className="text-[12.5px] text-[#C1121F] underline">
+        <Link
+          href="/admin/taxes"
+          className="inline-flex min-h-11 items-center text-[12.5px] text-[#C1121F] underline md:min-h-0"
+        >
           ← {t.common.back}
         </Link>
-        <h2 className="text-lg font-bold">
+        <h2 className="min-w-0 text-lg font-bold break-words">
           {data.rule.labelFr} · {data.categoryLabel}
         </h2>
         {current ? (
@@ -71,7 +74,7 @@ export default async function TaxRulePage({
         )}
       </div>
       <Banner ok={okMessage} error={error} />
-      <div className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="overflow-x-auto rounded-lg border border-[#E3DEDE] bg-white">
           <table className="w-full text-[12.5px]">
             <thead>
@@ -87,7 +90,10 @@ export default async function TaxRulePage({
                   t.admin.taxes.approvedBy,
                   "",
                 ].map((h, i) => (
-                  <th key={i} className="border-b border-[#D5CFCF] px-2.5 py-2 font-semibold">
+                  <th
+                    key={i}
+                    className="border-b border-[#D5CFCF] px-2.5 py-2 font-semibold max-lg:whitespace-nowrap"
+                  >
                     {h}
                   </th>
                 ))}
@@ -121,19 +127,21 @@ export default async function TaxRulePage({
                         : t.status.version.superseded;
                 return (
                   <tr key={v.id} className="border-b border-[#EFEAEA]">
-                    <td className="px-2.5 py-2 font-mono">v{v.version}</td>
-                    <td className="px-2.5 py-2 font-mono">
+                    <td className="px-2.5 py-2 font-mono whitespace-nowrap">v{v.version}</td>
+                    <td className="px-2.5 py-2 font-mono whitespace-nowrap">
                       {v.calcKind === "fixed"
                         ? formatFC(v.amountFc ?? 0)
                         : `${(v.rateBp ?? 0) / 100} %`}
                     </td>
-                    <td className="px-2.5 py-2">
+                    <td className="px-2.5 py-2 whitespace-nowrap">
                       {v.penaltyKind === "none"
                         ? t.common.none
                         : `${(v.penaltyRateBp ?? 0) / 100} % · ${v.graceDays} ${t.admin.taxes.days}`}
                     </td>
-                    <td className="px-2.5 py-2 font-mono">{formatDateFr(v.effectiveFrom)}</td>
-                    <td className="px-2.5 py-2 font-mono">
+                    <td className="px-2.5 py-2 font-mono whitespace-nowrap">
+                      {formatDateFr(v.effectiveFrom)}
+                    </td>
+                    <td className="px-2.5 py-2 font-mono whitespace-nowrap">
                       {v.effectiveTo ? formatDateFr(v.effectiveTo) : t.common.none}
                     </td>
                     <td className="px-2.5 py-2">
@@ -146,7 +154,7 @@ export default async function TaxRulePage({
                         <form action={approveVersionAction}>
                           <input type="hidden" name="ruleCode" value={data.rule.code} />
                           <input type="hidden" name="versionId" value={v.id} />
-                          <Button type="submit" size="sm">
+                          <Button type="submit" size="sm" className="h-11 md:h-7">
                             {t.admin.taxes.approve}
                           </Button>
                         </form>
@@ -175,23 +183,24 @@ export default async function TaxRulePage({
                   step={1}
                   required
                   defaultValue={latest?.amountFc ?? 0}
-                  className="font-mono"
+                  className="h-11 font-mono md:h-8"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-2 sm:grid-cols-2">
                 <div className="flex flex-col gap-1">
                   <Label>{t.admin.taxes.frequency}</Label>
                   <Input
                     value={latest ? t.admin.taxes.frequencyLabels[latest.frequency] : ""}
                     readOnly
+                    className="h-11 md:h-8"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
                   <Label>{t.admin.taxes.dueDate}</Label>
-                  <Input value={t.admin.taxes.lastDayOfPeriod} readOnly />
+                  <Input value={t.admin.taxes.lastDayOfPeriod} readOnly className="h-11 md:h-8" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-2 sm:grid-cols-2">
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="penaltyPct">{t.admin.taxes.penaltyRate} (%)</Label>
                   <Input
@@ -201,6 +210,7 @@ export default async function TaxRulePage({
                     min={0}
                     step={0.5}
                     defaultValue={latest?.penaltyRateBp != null ? latest.penaltyRateBp / 100 : ""}
+                    className="h-11 md:h-8"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
@@ -214,6 +224,7 @@ export default async function TaxRulePage({
                     min={0}
                     step={1}
                     defaultValue={latest?.graceDays ?? 30}
+                    className="h-11 md:h-8"
                   />
                 </div>
               </div>
@@ -230,11 +241,17 @@ export default async function TaxRulePage({
                   required
                   defaultValue={nextMonth}
                   min={today}
+                  className="h-11 md:h-8"
                 />
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor="referenceDocument">{t.admin.taxes.reference}</Label>
-                <Input id="referenceDocument" name="referenceDocument" maxLength={200} />
+                <Input
+                  id="referenceDocument"
+                  name="referenceDocument"
+                  maxLength={200}
+                  className="h-11 md:h-8"
+                />
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor="notesFr">{t.admin.taxes.notes}</Label>
@@ -243,7 +260,7 @@ export default async function TaxRulePage({
               <div className="border-warn bg-warn-soft rounded border-l-4 px-3 py-2 text-[12.5px]">
                 {t.admin.taxes.versionNotice}
               </div>
-              <Button type="submit" size="sm" className="self-start">
+              <Button type="submit" size="sm" className="h-11 self-stretch md:h-7 md:self-start">
                 {t.admin.taxes.submit}
               </Button>
             </form>

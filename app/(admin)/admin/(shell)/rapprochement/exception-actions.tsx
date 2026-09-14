@@ -54,7 +54,7 @@ export function ExceptionActions({
             key={kind}
             type="button"
             onClick={() => setOpenForm(kind)}
-            className={`h-8 rounded-md px-2.5 text-left text-[12px] font-semibold ${kind === primary ? "bg-[#C1121F] text-white" : "border border-[#D5CFCF] bg-white"}`}
+            className={`h-11 rounded-md px-2.5 text-left text-[12px] font-semibold md:h-8 ${kind === primary ? "bg-[#C1121F] text-white" : "border border-[#D5CFCF] bg-white"}`}
           >
             {labels[kind]}
           </button>
@@ -70,7 +70,7 @@ export function ExceptionActions({
                 minLength={5}
                 placeholder={R.actions.reason}
                 aria-label={R.actions.reason}
-                className="h-8 rounded-md border border-[#D5CFCF] px-2 text-[12px]"
+                className="h-11 rounded-md border border-[#D5CFCF] px-2 text-[12px] md:h-8"
               />
             ) : null}
             {kind === "attach" ? (
@@ -80,7 +80,7 @@ export function ExceptionActions({
                 pattern="LUB-[A-Za-z]{3}-\d{8}"
                 placeholder="LUB-KAM-00000125"
                 aria-label={R.actions.taxpayerNo}
-                className="h-8 rounded-md border border-[#D5CFCF] px-2 font-mono text-[12px]"
+                className="h-11 rounded-md border border-[#D5CFCF] px-2 font-mono text-[12px] md:h-8"
               />
             ) : null}
             {kind === "resolve" ? (
@@ -90,12 +90,12 @@ export function ExceptionActions({
                 minLength={5}
                 placeholder={R.actions.resolution}
                 aria-label={R.actions.resolution}
-                className="h-8 rounded-md border border-[#D5CFCF] px-2 text-[12px]"
+                className="h-11 rounded-md border border-[#D5CFCF] px-2 text-[12px] md:h-8"
               />
             ) : null}
             <button
               type="submit"
-              className={`h-8 rounded-md px-2.5 text-left text-[12px] font-semibold ${kind === primary ? "bg-[#C1121F] text-white" : "border border-[#D5CFCF] bg-white"}`}
+              className={`h-11 rounded-md px-2.5 text-left text-[12px] font-semibold md:h-8 ${kind === primary ? "bg-[#C1121F] text-white" : "border border-[#D5CFCF] bg-white"}`}
             >
               {labels[kind]}
             </button>
