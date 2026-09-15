@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { compressImage } from "@/lib/census/compress-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CITY_CENTER, COMMUNE_CENTERS } from "@/lib/admin/map-center";
 import { formatDateFr, formatFC } from "@/lib/i18n/format";
 import { t } from "@/lib/i18n";
 import { getAgentDb } from "@/lib/offline/db";
@@ -45,6 +47,19 @@ interface Result {
 
 const R = t.agent.register;
 
+/** Leaflet loads only when an agent places a point by hand, so the census page stays light. */
+const PositionPicker = dynamic(() => import("./position-picker").then((m) => m.PositionPicker), {
+  ssr: false,
+  loading: () => (
+    <div className="grid h-64 place-items-center rounded-lg bg-[#E8EFE9] text-[12.5px] text-[#4E5E52]">
+      {t.common.loading}
+    </div>
+  ),
+});
+
+type GpsFix = { lng: number; lat: number; accuracyM: number | null; source: "device" | "manual" };
+type GpsProblem = "denied" | "unavailable" | "unsupported";
+
 async function api<T>(
   path: string,
   body: unknown,
@@ -69,11 +84,15 @@ export function CensusWizard({
   categories,
   defaultCommune,
   appUrl,
+  allowManualPosition,
+  maptilerKey,
 }: {
   communes: Commune[];
   categories: Category[];
   defaultCommune: string;
   appUrl: string;
+  allowManualPosition: boolean;
+  maptilerKey: string | null;
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [clientUuid, setClientUuid] = useState(() => crypto.randomUUID());
@@ -85,16 +104,23 @@ export function CensusWizard({
   const [contactName, setContactName] = useState("");
   const [phone, setPhone] = useState("+243");
   const [idNumber, setIdNumber] = useState("");
-  const [commune, setCommune] = useState(defaultCommune);
+  // A commune without a configured quartier cannot be registered in: start on one that has some.
+  const startCommune =
+    communes.find((c) => c.code === defaultCommune && c.quartiers.length > 0)?.code ??
+    communes.find((c) => c.quartiers.length > 0)?.code ??
+    defaultCommune;
+  const [commune, setCommune] = useState(startCommune);
   const [quartier, setQuartier] = useState(
-    communes.find((c) => c.code === defaultCommune)?.quartiers[0]?.code ?? "",
+    communes.find((c) => c.code === startCommune)?.quartiers[0]?.code ?? "",
   );
   const [address, setAddress] = useState("");
   const [entityKind, setEntityKind] = useState<"property" | "business" | "activity">("property");
   const [category, setCategory] = useState(categories[0]?.code ?? "menage");
   const [entityName, setEntityName] = useState("");
-  const [gps, setGps] = useState<{ lng: number; lat: number; accuracyM: number } | null>(null);
-  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [gps, setGps] = useState<GpsFix | null>(null);
+  const [gpsError, setGpsError] = useState<GpsProblem | null>(null);
+  const [gpsAttempt, setGpsAttempt] = useState(0);
+  const [picking, setPicking] = useState(false);
   const [duplicates, setDuplicates] = useState<Duplicate[]>([]);
   const [preview, setPreview] = useState<Preview[]>([]);
   const [busy, setBusy] = useState(false);
@@ -106,23 +132,49 @@ export function CensusWizard({
   const dupTimer = useRef<number | null>(null);
 
   // GPS from the start so step 1 can already warn about a neighbour with a similar name.
+  // `gpsAttempt` restarts the watch when the agent taps "Réessayer la localisation".
   useEffect(() => {
     if (!("geolocation" in navigator)) {
-      const tid = window.setTimeout(() => setGpsError(R.gpsDenied), 0);
+      const tid = window.setTimeout(() => setGpsError("unsupported"), 0);
       return () => window.clearTimeout(tid);
     }
+    let lowAccuracyTried = false;
+    const onFix = (pos: GeolocationPosition) => {
+      setGpsError(null);
+      // A point the agent placed by hand stays until they ask for the device position again.
+      setGps((prev) =>
+        prev?.source === "manual"
+          ? prev
+          : {
+              lng: pos.coords.longitude,
+              lat: pos.coords.latitude,
+              accuracyM: Math.round(pos.coords.accuracy),
+              source: "device",
+            },
+      );
+    };
     const id = navigator.geolocation.watchPosition(
-      (pos) =>
-        setGps({
-          lng: pos.coords.longitude,
-          lat: pos.coords.latitude,
-          accuracyM: Math.round(pos.coords.accuracy),
-        }),
-      () => setGpsError(R.gpsDenied),
+      onFix,
+      (err) => {
+        if (err.code === 1) {
+          setGpsError("denied");
+          return;
+        }
+        setGpsError("unavailable");
+        // High accuracy often times out indoors: one try with the network position first.
+        if (!lowAccuracyTried) {
+          lowAccuracyTried = true;
+          navigator.geolocation.getCurrentPosition(onFix, () => undefined, {
+            enableHighAccuracy: false,
+            maximumAge: 60_000,
+            timeout: 15_000,
+          });
+        }
+      },
       { enableHighAccuracy: true, maximumAge: 10_000, timeout: 20_000 },
     );
     return () => navigator.geolocation.clearWatch(id);
-  }, []);
+  }, [gpsAttempt]);
 
   // Duplicate check: same phone, or similar name within 30 m (debounced).
   useEffect(() => {
@@ -168,10 +220,27 @@ export function CensusWizard({
 
   const selectedCommune = communes.find((c) => c.code === commune);
   const firstDue = preview[0];
+  const noQuartier = (selectedCommune?.quartiers.length ?? 0) === 0;
+  const gpsMessage =
+    gpsError === "denied"
+      ? R.gpsDenied
+      : gpsError === "unavailable"
+        ? R.gpsUnavailable
+        : gpsError === "unsupported"
+          ? R.gpsUnsupported
+          : R.gpsWaiting;
+  const centre = COMMUNE_CENTERS[commune] ?? CITY_CENTER;
+
+  function retryGps() {
+    setGps(null);
+    setGpsError(null);
+    setPicking(false);
+    setGpsAttempt((n) => n + 1);
+  }
 
   async function submit() {
     if (!gps) {
-      setError(R.gpsDenied);
+      setError(R.gpsRequired);
       return;
     }
     setBusy(true);
@@ -193,7 +262,13 @@ export function CensusWizard({
         kind: entityKind,
         categoryCode: category,
         name: entityName.trim() || `${address.trim()}`,
-        gps,
+        gps: {
+          lng: gps.lng,
+          lat: gps.lat,
+          accuracyM: gps.source === "device" && gps.accuracyM !== null ? gps.accuracyM : undefined,
+          // DECISION-PENDING: D34 — hand-placed points are accepted outside production only.
+          source: gps.source,
+        },
       },
       capturedAt: new Date().toISOString(),
     };
@@ -238,6 +313,9 @@ export function CensusWizard({
     setEntityName("");
     setPhotos({});
     setPhotoStatus(null);
+    setPicking(false);
+    // The device position still holds for the next door; a hand-placed point does not.
+    setGps((prev) => (prev?.source === "manual" ? null : prev));
     setDuplicates([]);
     setPreview([]);
     setResult(null);
@@ -400,8 +478,8 @@ export function CensusWizard({
                   className="h-12 rounded-md border border-[#D5CFCF] bg-white px-2 text-base"
                 >
                   {communes.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name}
+                    <option key={c.code} value={c.code} disabled={c.quartiers.length === 0}>
+                      {c.quartiers.length === 0 ? `${c.name} · ${R.noQuartier}` : c.name}
                     </option>
                   ))}
                 </select>
@@ -434,6 +512,14 @@ export function CensusWizard({
                 className="h-12 text-base"
               />
             </div>
+            {noQuartier ? (
+              <p
+                role="alert"
+                className="border-bad bg-bad-soft rounded border-l-4 px-3 py-2 text-[12.5px]"
+              >
+                {R.noQuartierWarn}
+              </p>
+            ) : null}
             {!online ? (
               <p className="border-warn bg-warn-soft rounded border-l-4 px-3 py-2 text-[12.5px]">
                 {R.offlineDuplicates}
@@ -455,7 +541,7 @@ export function CensusWizard({
               </div>
             ) : null}
             <div className="mt-auto">
-              <Button type="submit" className="h-12 w-full text-[15px]">
+              <Button type="submit" disabled={noQuartier} className="h-12 w-full text-[15px]">
                 {R.continue}
               </Button>
             </div>
@@ -537,9 +623,46 @@ export function CensusWizard({
               </div>
               <p className="font-mono text-[12.5px] text-[#5C5456]">
                 {gps
-                  ? `${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)} · ${R.gpsAccuracy} ${gps.accuracyM} m ${gps.accuracyM <= 15 ? "✓" : ""}`
-                  : (gpsError ?? R.gpsWaiting)}
+                  ? `${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)} · ${
+                      gps.source === "manual"
+                        ? R.gpsManual
+                        : `${R.gpsAccuracy} ${gps.accuracyM ?? ""} m ${(gps.accuracyM ?? 99) <= 15 ? "✓" : ""}`
+                    }`
+                  : gpsMessage}
               </p>
+              {gpsError || gps?.source === "manual" ? (
+                <button
+                  type="button"
+                  onClick={retryGps}
+                  className="min-h-12 rounded-md border border-[#D5CFCF] bg-white px-3 text-[14px] font-semibold"
+                >
+                  {R.gpsRetry}
+                </button>
+              ) : null}
+              {allowManualPosition &&
+              online &&
+              !picking &&
+              (gpsError || gps?.source === "manual") ? (
+                <button
+                  type="button"
+                  onClick={() => setPicking(true)}
+                  className="min-h-12 rounded-md border border-[#C1121F] bg-white px-3 text-[14px] font-semibold text-[#C1121F]"
+                >
+                  {R.gpsManualOpen}
+                </button>
+              ) : null}
+              {picking ? (
+                <PositionPicker
+                  center={[centre.lat, centre.lng]}
+                  maptilerKey={maptilerKey}
+                  onCancel={() => setPicking(false)}
+                  onUse={(p) => {
+                    setGps({ lng: p.lng, lat: p.lat, accuracyM: null, source: "manual" });
+                    setPicking(false);
+                    setError(null);
+                  }}
+                />
+              ) : null}
             </div>
             {!online && preview.length === 0 ? (
               <p className="border-warn bg-warn-soft rounded border-l-4 px-3 py-2 text-[12.5px]">
@@ -565,6 +688,9 @@ export function CensusWizard({
               <p className="border-bad bg-bad-soft rounded border-l-4 px-3 py-2 text-[12.5px]">
                 {error}
               </p>
+            ) : null}
+            {!gps && !error ? (
+              <p className="text-[12.5px] text-[#5C5456]">{R.gpsRequired}</p>
             ) : null}
             <div className="mt-auto flex gap-2.5">
               <Button

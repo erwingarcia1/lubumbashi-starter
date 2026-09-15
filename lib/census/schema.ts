@@ -25,6 +25,8 @@ export const censusInput = z.object({
       lng: z.number().min(-180).max(180),
       lat: z.number().min(-90).max(90),
       accuracyM: z.number().int().nonnegative().optional(),
+      /** `manual`: placed by hand on a map because the device gave no position (D34). */
+      source: z.enum(["device", "manual"]).optional(),
     }),
     taxBaseFc: z.number().int().nonnegative().optional(),
   }),

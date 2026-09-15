@@ -19,10 +19,14 @@ import { allocateTaxpayerId } from "@/lib/identity/ids";
 import { issuePortalLink } from "@/lib/portal/links";
 import { computeObligations, type Rule } from "@/lib/tax-engine";
 
+import { manualPositionAllowed } from "./position";
 import { censusInput, type CensusInput } from "./schema";
 
 export class CensusError extends Error {
-  constructor(readonly code: "unknown_commune" | "unknown_quartier" | "unknown_category") {
+  constructor(
+    readonly code:
+      "unknown_commune" | "unknown_quartier" | "unknown_category" | "manual_position_refused",
+  ) {
     super(code);
     this.name = "CensusError";
   }
@@ -59,8 +63,14 @@ export async function registerTaxpayer(
   session: AgentSession,
   raw: CensusInput,
   now = new Date(),
+  ctx: { ip?: string | undefined } = {},
+  env: Record<string, string | undefined> = process.env,
 ): Promise<RegistrationResult> {
   const input = censusInput.parse(raw);
+  const manual = input.entity.gps.source === "manual";
+  // DECISION-PENDING: D34 — hand-placed positions are refused in production.
+  if (manual && !manualPositionAllowed(env)) throw new CensusError("manual_position_refused");
+  const accuracyM = manual ? null : (input.entity.gps.accuracyM ?? null);
   const [existing] = await db
     .select({ id: taxpayers.id, taxpayerNo: taxpayers.taxpayerNo })
     .from(taxpayers)
@@ -143,7 +153,7 @@ export async function registerTaxpayer(
         communeId: commune.id,
         quartierId: quartier.id,
         location: { x: input.entity.gps.lng, y: input.entity.gps.lat },
-        gpsAccuracyM: input.entity.gps.accuracyM ?? null,
+        gpsAccuracyM: accuracyM,
         taxBaseFc: input.entity.taxBaseFc ?? null,
         registeredAt,
         registeredByAgentId: session.agentId,
@@ -217,10 +227,16 @@ export async function registerTaxpayer(
         entity: input.entity.name,
         category: category.code,
         clientUuid: input.clientUuid,
-        gpsAccuracyM: input.entity.gps.accuracyM ?? null,
+        gpsAccuracyM: accuracyM,
+        gpsSource: manual ? "manual" : "device",
         obligations: issued.length,
       },
-      where: { gps: { lng: input.entity.gps.lng, lat: input.entity.gps.lat } },
+      // Invariant 4: WHERE is the device GPS; a hand-placed point is not one, so the IP stands in.
+      where: manual
+        ? ctx.ip
+          ? { ip: ctx.ip }
+          : undefined
+        : { gps: { lng: input.entity.gps.lng, lat: input.entity.gps.lat } },
       device: { id: session.deviceId },
     });
     return {

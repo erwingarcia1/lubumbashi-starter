@@ -144,6 +144,9 @@ export const fr = {
       photosSent: "Photos envoyées",
       commune: "Commune",
       quartier: "Quartier",
+      noQuartier: "aucun quartier configuré",
+      noQuartierWarn:
+        "Aucun quartier n’est configuré pour cette commune : choisissez-en une autre.",
       address: "Adresse",
       duplicate: "Doublon possible :",
       duplicateAt: "déjà recensé à",
@@ -160,7 +163,17 @@ export const fr = {
       gps: "Position GPS",
       gpsWaiting: "Recherche du signal GPS…",
       gpsAccuracy: "précision",
-      gpsDenied: "Position indisponible : autorisez la localisation.",
+      gpsDenied:
+        "Localisation refusée : autorisez-la dans les réglages du navigateur, puis touchez Réessayer la localisation.",
+      gpsUnavailable:
+        "Signal GPS introuvable : placez-vous à découvert, puis touchez Réessayer la localisation.",
+      gpsUnsupported: "Ce navigateur ne fournit pas la position.",
+      gpsRetry: "Réessayer la localisation",
+      gpsRequired: "La position du bien est obligatoire pour enregistrer.",
+      gpsManualOpen: "Placer le point sur la carte",
+      gpsManualHint: "Touchez la carte à l’emplacement exact du bien, puis Utiliser ce point.",
+      gpsManualUse: "Utiliser ce point",
+      gpsManual: "placé à la main",
       entityName: "Nom du bien",
       obligation: "Obligation générée",
       amount: "Montant",
@@ -185,6 +198,8 @@ export const fr = {
         unknown_commune: "Commune inconnue.",
         unknown_quartier: "Quartier inconnu.",
         unknown_category: "Catégorie inconnue.",
+        manual_position_refused:
+          "Position placée à la main refusée : la position GPS de l’appareil est obligatoire.",
         network: "Envoi impossible. Vérifiez le réseau.",
       },
     },

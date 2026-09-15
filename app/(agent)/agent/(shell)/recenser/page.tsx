@@ -1,5 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 
+import { manualPositionAllowed } from "@/lib/census/position";
 import { getDb } from "@/lib/db/client";
 import { categories, zones } from "@/lib/db/schema";
 import { requireAgent } from "@/lib/identity/agent-session";
@@ -37,6 +38,8 @@ export default async function RegisterPage() {
       categories={categoryRows}
       defaultCommune={agentCommune}
       appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""}
+      allowManualPosition={manualPositionAllowed()}
+      maptilerKey={process.env.NEXT_PUBLIC_MAPTILER_KEY ?? null}
     />
   );
 }

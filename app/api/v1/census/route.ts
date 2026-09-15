@@ -1,4 +1,4 @@
-import { fail, ok, parseBody } from "@/lib/api/respond";
+import { fail, ok, parseBody, requestContext } from "@/lib/api/respond";
 import { CensusError, registerTaxpayer } from "@/lib/census/register";
 import { censusInput } from "@/lib/census/schema";
 import { getDb } from "@/lib/db/client";
@@ -12,7 +12,13 @@ export async function POST(request: Request) {
   const body = await parseBody(request, censusInput);
   if ("error" in body) return body.error;
   try {
-    const result = await registerTaxpayer(getDb(), session, body.data);
+    const result = await registerTaxpayer(
+      getDb(),
+      session,
+      body.data,
+      new Date(),
+      requestContext(request),
+    );
     if (result.created) flushNotificationsSoon();
     return ok(result, { status: result.created ? 201 : 200 });
   } catch (err) {

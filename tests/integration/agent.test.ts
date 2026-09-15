@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { findDuplicates } from "@/lib/census/duplicates";
 import { registerTaxpayer } from "@/lib/census/register";
-import { agents, auditLog, devices, obligations, taxpayers } from "@/lib/db/schema";
+import { agents, auditLog, devices, entities, obligations, taxpayers } from "@/lib/db/schema";
 import { AgentLoginError, loginAgent } from "@/lib/identity/agent-auth";
 import type { AgentSession } from "@/lib/identity/agent-session";
 import { runSeed } from "@/scripts/seed";
@@ -155,6 +155,7 @@ describe("census registration", () => {
       );
     expect(audit?.deviceId).toBe(session.deviceId);
     expect(audit?.gps).toEqual({ x: 27.495, y: -11.67 });
+    expect(audit?.details).toMatchObject({ gpsSource: "device", gpsAccuracyM: 8 });
     await expect(
       registerTaxpayer(db, session, {
         ...input,
@@ -162,5 +163,51 @@ describe("census registration", () => {
         taxpayer: { ...input.taxpayer, communeCode: "ZZZ" },
       }),
     ).rejects.toMatchObject({ code: "unknown_commune" });
+  });
+
+  it("accepts a hand-placed position outside production, flags it, and refuses it in production (D34)", async () => {
+    const db = appDb();
+    const base = {
+      taxpayer: {
+        kind: "person" as const,
+        fullName: "Test Position Manuelle",
+        phone: "+243990000778",
+        communeCode: "KAM",
+        quartierCode: "bel-air",
+        address: "Av. Test 8",
+      },
+      entity: {
+        kind: "property" as const,
+        categoryCode: "menage",
+        name: "Résidence Av. Test 8",
+        // A client claiming an accuracy for a hand-placed point is ignored.
+        gps: { lng: 27.496, lat: -11.671, accuracyM: 5, source: "manual" as const },
+      },
+    };
+    const ctx = { ip: "198.51.100.7" };
+    await expect(
+      registerTaxpayer(db, session, { ...base, clientUuid: randomUUID() }, new Date(), ctx, {
+        APP_ENV: "production",
+      }),
+    ).rejects.toMatchObject({ code: "manual_position_refused" });
+    const r = await registerTaxpayer(
+      db,
+      session,
+      { ...base, clientUuid: randomUUID() },
+      new Date(),
+      ctx,
+      { APP_ENV: "demo" },
+    );
+    expect(r.created).toBe(true);
+    const [ent] = await db.select().from(entities).where(eq(entities.id, r.entityId));
+    expect(ent?.gpsAccuracyM).toBeNull();
+    const [audit] = await db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.action, "taxpayer.registered"), eq(auditLog.objectId, r.taxpayerNo)));
+    expect(audit?.details).toMatchObject({ gpsSource: "manual", gpsAccuracyM: null });
+    expect(audit?.gps).toBeNull();
+    expect(audit?.ip).toBe("198.51.100.7");
+    expect(audit?.deviceId).toBe(session.deviceId);
   });
 });

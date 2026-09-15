@@ -69,3 +69,42 @@ test.describe("Agent app (M4)", () => {
     await expect(page.getByRole("img", { name: /LUB-KAM-\d{8}/ })).toBeVisible();
   });
 });
+
+test.describe("Census without a device position", () => {
+  test.use({ permissions: [] }); // location refused by the browser
+
+  test("explicit message and retry, point placed on the map, record saved; empty communes greyed out", async ({
+    page,
+  }) => {
+    await loginAgent(page);
+    await page.getByRole("link", { name: "Recenser", exact: true }).click();
+    await expect(page.getByText("Étape 1 sur 3")).toBeVisible();
+    // Only Kampemba has quartiers in the demo data: the others cannot dead-end step 1.
+    await expect(page.locator('#commune option[value="RUA"]')).toBeDisabled();
+    await page.getByLabel("Nom complet").fill(`E2E Sans GPS ${Date.now()}`);
+    await page
+      .getByLabel("Téléphone (pour le reçu SMS)")
+      .fill(`+24398${String(Date.now()).slice(-7)}`);
+    await page.getByLabel("Adresse").fill("Av. Kasaï 998");
+    await page.getByRole("button", { name: "Continuer" }).click();
+    await expect(page.getByText("Étape 2 sur 3")).toBeVisible();
+    await expect(page.getByText(/^Localisation refusée/)).toBeVisible();
+    await expect(
+      page.getByText("La position du bien est obligatoire pour enregistrer."),
+    ).toBeVisible();
+    const save = page.getByRole("button", { name: "Enregistrer le contribuable" });
+    await expect(save).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Réessayer la localisation" })).toBeVisible();
+    await page.getByRole("button", { name: "Placer le point sur la carte" }).click();
+    const map = page.getByTestId("position-picker").locator(".leaflet-container");
+    await expect(map).toBeVisible();
+    await expect(page.getByRole("button", { name: "Utiliser ce point" })).toBeDisabled();
+    await map.click({ position: { x: 200, y: 130 } });
+    await page.getByRole("button", { name: "Utiliser ce point" }).click();
+    await expect(page.getByText(/placé à la main/)).toBeVisible();
+    await expect(save).toBeEnabled();
+    await save.click();
+    await expect(page.getByText("Contribuable enregistré")).toBeVisible();
+    await expect(page.getByText(/LUB-KAM-\d{8}/)).toBeVisible();
+  });
+});
