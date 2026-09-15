@@ -51,7 +51,7 @@ export function PositionPicker({
       {/* isolate: Leaflet panes carry z-index 400-1000 and must stay under the tab bar. */}
       <div
         data-testid="position-picker"
-        className="isolate z-0 overflow-hidden rounded-lg border border-[#D5CFCF] [&_.leaflet-bar_a]:h-11! [&_.leaflet-bar_a]:w-11! [&_.leaflet-bar_a]:leading-11!"
+        className="isolate z-0 overflow-hidden rounded-lg border border-[#D5CFCF] [&_.leaflet-bar_a]:h-12! [&_.leaflet-bar_a]:w-12! [&_.leaflet-bar_a]:leading-12!"
       >
         <MapContainer
           center={center}

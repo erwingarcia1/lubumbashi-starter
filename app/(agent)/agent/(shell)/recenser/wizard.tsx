@@ -651,13 +651,18 @@ export function CensusWizard({
                   {R.gpsManualOpen}
                 </button>
               ) : null}
-              {picking ? (
+              {/* A device fix that lands while the picker is open wins: the picker closes. */}
+              {picking && gps?.source !== "device" ? (
                 <PositionPicker
                   center={[centre.lat, centre.lng]}
                   maptilerKey={maptilerKey}
                   onCancel={() => setPicking(false)}
                   onUse={(p) => {
-                    setGps({ lng: p.lng, lat: p.lat, accuracyM: null, source: "manual" });
+                    setGps((prev) =>
+                      prev?.source === "device"
+                        ? prev
+                        : { lng: p.lng, lat: p.lat, accuracyM: null, source: "manual" },
+                    );
                     setPicking(false);
                     setError(null);
                   }}
