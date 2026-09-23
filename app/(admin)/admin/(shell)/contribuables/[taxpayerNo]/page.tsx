@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getTaxpayerDetail } from "@/lib/admin/taxpayers";
 import { getDb } from "@/lib/db/client";
-import { canEditTaxpayer } from "@/lib/identity/roles";
+import { canEditTaxpayer, canIssueInvoice } from "@/lib/identity/roles";
 import { requireAdmin } from "@/lib/identity/session";
 import { formatDateFr, formatDateTimeFr, formatFC, formatMonthFr } from "@/lib/i18n/format";
 import { t } from "@/lib/i18n";
@@ -53,6 +53,7 @@ export default async function TaxpayerPage({
   const today = businessDate(new Date());
   const D = t.admin.taxpayers.detail;
   const editable = canEditTaxpayer(session.role);
+  const canIssue = canIssueInvoice(session.role);
   const canReverse = session.role === "finances" || session.role === "administrateur";
   const okMessage =
     ok === "reversed"
@@ -164,6 +165,7 @@ export default async function TaxpayerPage({
                   </th>
                   <th className="border-b border-[#D5CFCF] px-2 py-1.5">{D.columns.due}</th>
                   <th className="border-b border-[#D5CFCF] px-2 py-1.5">{D.columns.status}</th>
+                  <th className="border-b border-[#D5CFCF] px-2 py-1.5">{D.columns.invoice}</th>
                 </tr>
               </thead>
               <tbody>
@@ -185,6 +187,27 @@ export default async function TaxpayerPage({
                       <td className="px-2 py-1.5 font-mono">{formatDateFr(o.dueDate)}</td>
                       <td className="px-2 py-1.5">
                         <Pill tone={p.tone}>{p.label}</Pill>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        {canIssue &&
+                        o.invoiceNo &&
+                        (o.status === "due" || o.status === "partially_paid") ? (
+                          <a
+                            href={`/api/v1/admin/invoices/${o.invoiceNo}/pdf`}
+                            target="_blank"
+                            rel="noopener"
+                            className="inline-flex min-h-11 items-center text-[#C1121F] underline md:min-h-0"
+                          >
+                            {t.admin.invoices.link}
+                          </a>
+                        ) : o.invoiceIssuedAt ? null : (
+                          t.common.none
+                        )}
+                        {o.invoiceIssuedAt ? (
+                          <div className="text-[11.5px] text-[#5C5456]">
+                            {t.admin.invoices.issuedOn} {formatDateFr(o.invoiceIssuedAt)}
+                          </div>
+                        ) : null}
                       </td>
                     </tr>
                   );

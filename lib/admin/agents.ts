@@ -6,6 +6,8 @@ import { writeAudit } from "@/lib/audit/write";
 import type { Db, Tx } from "@/lib/db/client";
 import { agents, devices, zones } from "@/lib/db/schema";
 import type { AdminSession } from "@/lib/identity/session";
+import { businessDate } from "@/lib/time";
+import { activitySummary, trailsForDay } from "@/lib/tracking/activity";
 
 import { actorOf, deviceOf, whereOf, type RequestContext } from "./context";
 import { AdminError } from "./errors";
@@ -26,6 +28,10 @@ export interface AgentRow {
   outOfZone: number;
   lastSeenAt: Date | null;
   status: "active" | "suspended";
+  /** Field activity of the current business day (D38): last signal, metres walked, acts. */
+  todayLastSeenAt: Date | null;
+  todayDistanceM: number;
+  todayActs: number;
   devices: Array<{
     id: string;
     code: string;
@@ -78,33 +84,40 @@ export async function agentsTable(db: Db, now = new Date()): Promise<AgentRow[]>
       order by a.matricule`)
   ).rows;
   const deviceRows = await db.select().from(devices);
-  return rows.map((r) => ({
-    id: r.id,
-    matricule: r.matricule,
-    fullName: r.full_name,
-    zone: r.zone,
-    registered: Number(r.registered),
-    collections: Number(r.collections),
-    amountFc: Number(r.amount),
-    attempts7d: Number(r.attempts),
-    failureRate7d:
-      Number(r.attempts) > 0 ? Math.round((Number(r.failures) / Number(r.attempts)) * 100) : null,
-    duplicates: Number(r.duplicates),
-    outOfZone: Number(r.out_of_zone),
-    lastSeenAt: r.last_seen ? new Date(r.last_seen) : null,
-    status: r.status,
-    devices: deviceRows
-      .filter((d) => d.agentId === r.id)
-      .map((d) => ({
-        id: d.id,
-        code: d.deviceCode,
-        label: d.label,
-        status: d.status,
-        lastSeenAt: d.lastSeenAt,
-        revokedAt: d.revokedAt,
-        revokedReason: d.revokedReason,
-      })),
-  }));
+  const trails = await trailsForDay(db, businessDate(now));
+  return rows.map((r) => {
+    const today = activitySummary(trails.get(r.id) ?? [], null);
+    return {
+      id: r.id,
+      matricule: r.matricule,
+      fullName: r.full_name,
+      zone: r.zone,
+      registered: Number(r.registered),
+      collections: Number(r.collections),
+      amountFc: Number(r.amount),
+      attempts7d: Number(r.attempts),
+      failureRate7d:
+        Number(r.attempts) > 0 ? Math.round((Number(r.failures) / Number(r.attempts)) * 100) : null,
+      duplicates: Number(r.duplicates),
+      outOfZone: Number(r.out_of_zone),
+      lastSeenAt: r.last_seen ? new Date(r.last_seen) : null,
+      status: r.status,
+      todayLastSeenAt: today.lastAt,
+      todayDistanceM: today.distanceM,
+      todayActs: today.registrations + today.collections,
+      devices: deviceRows
+        .filter((d) => d.agentId === r.id)
+        .map((d) => ({
+          id: d.id,
+          code: d.deviceCode,
+          label: d.label,
+          status: d.status,
+          lastSeenAt: d.lastSeenAt,
+          revokedAt: d.revokedAt,
+          revokedReason: d.revokedReason,
+        })),
+    };
+  });
 }
 
 /** Administrateur or Superviseur revoke a device with a reason; the agent is logged out on the next request. */

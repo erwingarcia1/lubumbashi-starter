@@ -11,12 +11,15 @@ const ROUTES = [
   "/admin/contribuables",
   "/admin/contribuables/LUB-KAM-00000125",
   "/admin/agents",
+  "/admin/agents/AG-KAM-007",
   "/admin/rapprochement",
   "/admin/taxes",
   "/admin/taxes/assainissement_menage",
   "/admin/audit",
   "/admin/rapports",
   "/admin/reglages",
+  "/admin/commissions",
+  "/admin/commissions?mois=2026-09",
 ];
 
 const VIEWPORTS = {

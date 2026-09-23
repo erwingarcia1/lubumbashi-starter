@@ -1,9 +1,12 @@
+import Link from "next/link";
+
 import { agentsTable, canManageAgents, zonesForAgents } from "@/lib/admin/agents";
 import { getDb } from "@/lib/db/client";
 import { requireAdmin } from "@/lib/identity/session";
 import { formatDateTimeFr, formatFC } from "@/lib/i18n/format";
 import { t } from "@/lib/i18n";
 import { requestNow } from "@/lib/time";
+import { formatKm, formatTimeFr } from "@/lib/tracking/format";
 
 import { createAgentAction, resetAgentPinAction, revokeDeviceAction } from "../../_actions";
 import { Banner } from "../../_components/banner";
@@ -19,6 +22,7 @@ export default async function AgentsPage({
   const db = getDb();
   const [rows, communes] = await Promise.all([agentsTable(db), zonesForAgents(db)]);
   const A = t.admin.agents;
+  const T = t.admin.tracking;
   const canRevoke = canManageAgents(session.role);
   const abnormal = rows.filter((r) => r.attempts7d >= 5 && (r.failureRate7d ?? 0) > 30);
   const staleCutoff = requestNow().getTime() - 24 * 3_600_000;
@@ -168,7 +172,22 @@ export default async function AgentsPage({
                       </form>
                     ) : null}
                   </td>
-                  <td className="px-2.5 py-2">{r.zone}</td>
+                  <td className="px-2.5 py-2">
+                    {r.zone}
+                    <br />
+                    <Link
+                      href={`/admin/agents/${r.matricule}`}
+                      className="inline-block min-h-11 py-2.5 font-semibold text-[#C1121F] underline md:min-h-0 md:py-0"
+                    >
+                      {T.link}
+                    </Link>
+                    <span className="block text-[11.5px] whitespace-nowrap text-[#5C5456]">
+                      {T.snippet.today}{" "}
+                      {r.todayLastSeenAt
+                        ? `${T.snippet.lastSeen} ${formatTimeFr(r.todayLastSeenAt)} · ${formatKm(r.todayDistanceM)} · ${r.todayActs} ${T.snippet.acts}`
+                        : T.snippet.none}
+                    </span>
+                  </td>
                   <td className="px-2.5 py-2 text-right font-mono">{r.registered}</td>
                   <td className="px-2.5 py-2 text-right font-mono">{r.collections}</td>
                   <td className="px-2.5 py-2 text-right font-mono">{formatFC(r.amountFc)}</td>

@@ -6,6 +6,8 @@ import type { MapPoint } from "@/lib/admin/map";
 import type { MapView } from "@/lib/admin/map-center";
 import { t } from "@/lib/i18n";
 
+import type { AgentMarker } from "./coverage-map";
+
 /** Leaflet touches `window`: load it in the browser only. */
 const CoverageMap = dynamic(() => import("./coverage-map").then((m) => m.CoverageMap), {
   ssr: false,
@@ -20,6 +22,7 @@ export function CoverageMapLoader(props: {
   points: MapPoint[];
   view: MapView;
   maptilerKey: string | null;
+  agentMarkers?: AgentMarker[];
 }) {
   return <CoverageMap {...props} />;
 }

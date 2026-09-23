@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/v1/receipts/[receiptNo]/pdf": ["./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/**"],
     "/api/v1/admin/reports/[code]": ["./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/**"],
+    "/api/v1/admin/invoices/[invoiceNo]/pdf": [
+      "./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/**",
+    ],
   },
 };
 

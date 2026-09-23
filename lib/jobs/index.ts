@@ -4,7 +4,13 @@ import { availableChannels } from "@/lib/payments/registry";
 import { reconcileDay, type RunSummary } from "@/lib/reconciliation/run";
 import { businessDate } from "@/lib/time";
 
+import {
+  refreshCurrentMonthDrafts,
+  refreshDraftStatements,
+  refreshPreviousMonthDrafts,
+} from "./commissions";
 import { accruePenalties } from "./penalties";
+import { purgePositions } from "./positions";
 
 /** Business day before `now` (Africa/Lubumbashi): what the nightly job reconciles. */
 export function previousBusinessDate(now = new Date()): string {
@@ -16,6 +22,10 @@ export const JOBS = {
   reconcileDaily: "reconcile-daily",
   penaltiesDaily: "penalties-daily",
   notifyFlush: "notify-flush",
+  /** Nightly retention of agent positions (D38). */
+  positionsPurge: "positions-purge",
+  /** Agent commission drafts (D36): the previous month on the 1st, the current month daily. */
+  commissionsMonthly: "commissions-monthly",
 } as const;
 
 export async function nightlyReconciliation(
@@ -25,4 +35,11 @@ export async function nightlyReconciliation(
   return reconcileDay(db, day, availableChannels());
 }
 
-export { accruePenalties, processNotificationQueue };
+export {
+  accruePenalties,
+  processNotificationQueue,
+  purgePositions,
+  refreshCurrentMonthDrafts,
+  refreshDraftStatements,
+  refreshPreviousMonthDrafts,
+};

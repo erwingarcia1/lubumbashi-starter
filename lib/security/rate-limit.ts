@@ -66,6 +66,8 @@ export const limits = {
   /** Self-service payments and link requests: per IP. */
   portalPayments: new RateLimiter(10, MINUTE),
   portalLinks: new RateLimiter(5, 10 * MINUTE),
+  /** Position pings: per agent (one batch every 3 minutes in normal use, bursts after offline). */
+  agentPositions: new RateLimiter(30, 5 * MINUTE),
 };
 
 export function clientKey(ip: string | undefined): string {

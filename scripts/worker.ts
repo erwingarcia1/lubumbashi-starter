@@ -5,13 +5,20 @@ loadEnvConfig(process.cwd(), process.env.NODE_ENV !== "production");
 
 /**
  * pg-boss worker (docker compose `worker` profile, or `pnpm worker` locally): nightly
- * reconciliation at 23:30, penalty accrual at 00:10, notification sends every minute; all in
- * Africa/Lubumbashi. The tables live in schema `pgboss` (migration 0009).
+ * reconciliation at 23:30, penalty accrual at 00:10, notification sends every minute, agent
+ * position purge at 01:00; all in Africa/Lubumbashi. The tables live in schema `pgboss` (migration 0009).
  */
 async function main() {
   const { getDb } = await import("@/lib/db/client");
-  const { JOBS, accruePenalties, nightlyReconciliation, processNotificationQueue } =
-    await import("@/lib/jobs");
+  const {
+    JOBS,
+    accruePenalties,
+    nightlyReconciliation,
+    processNotificationQueue,
+    purgePositions,
+    refreshCurrentMonthDrafts,
+    refreshPreviousMonthDrafts,
+  } = await import("@/lib/jobs");
   const db = getDb();
   const boss = new PgBoss({
     connectionString: process.env.DATABASE_URL!,
@@ -29,6 +36,27 @@ async function main() {
   await boss.schedule(JOBS.reconcileDaily, "30 23 * * *", null, { tz });
   await boss.schedule(JOBS.penaltiesDaily, "10 0 * * *", null, { tz });
   await boss.schedule(JOBS.notifyFlush, "* * * * *", null, { tz });
+  await boss.schedule(JOBS.positionsPurge, "0 1 * * *", null, { tz });
+  // Commission drafts (D36): one queue, two keyed schedules — the month that just ended on the
+  // 1st at 00:30, the month in progress every day at 00:20.
+  await boss.schedule(
+    JOBS.commissionsMonthly,
+    "30 0 1 * *",
+    { scope: "previous" },
+    {
+      tz,
+      key: "previous-month",
+    },
+  );
+  await boss.schedule(
+    JOBS.commissionsMonthly,
+    "20 0 * * *",
+    { scope: "current" },
+    {
+      tz,
+      key: "current-month",
+    },
+  );
 
   await boss.work(JOBS.reconcileDaily, async ([job]: Job<{ day?: string } | null>[]) => {
     const day = job?.data?.day;
@@ -46,6 +74,20 @@ async function main() {
     const r = await processNotificationQueue(db);
     if (r.sent || r.failed) console.log(`notify: sent ${r.sent}, failed ${r.failed}`);
   });
+  await boss.work(JOBS.positionsPurge, async () => {
+    const r = await purgePositions(db);
+    console.log(`positions: purged ${r.deleted} rows before ${r.before}`);
+  });
+  await boss.work(
+    JOBS.commissionsMonthly,
+    async ([job]: Job<{ scope?: "previous" | "current" } | null>[]) => {
+      const r =
+        job?.data?.scope === "previous"
+          ? await refreshPreviousMonthDrafts(db)
+          : await refreshCurrentMonthDrafts(db);
+      console.log(`commissions ${r.period}: ${r.refreshed} drafts refreshed, ${r.frozen} frozen`);
+    },
+  );
   console.log(`worker: ${Object.values(JOBS).join(", ")} scheduled (${tz})`);
 
   const stop = async () => {

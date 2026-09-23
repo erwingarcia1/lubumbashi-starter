@@ -54,3 +54,26 @@ export function canReadRegistry(role: AdminRole): boolean {
 export function canReconcile(role: AdminRole): boolean {
   return role === "finances" || role === "administrateur";
 }
+
+/** Issues (prints) a note de perception from the back office: Finances, Administrateur, Superviseur (D35). */
+export function canIssueInvoice(role: AdminRole): boolean {
+  return role === "finances" || role === "administrateur" || role === "superviseur";
+}
+
+/** Reads an agent's field activity (positions, trail, stops): Superviseur, Administrateur, Maire, Auditeur (D38). */
+export function canViewTracking(role: AdminRole): boolean {
+  return (
+    role === "superviseur" || role === "administrateur" || role === "maire" || role === "auditeur"
+  );
+}
+
+// DECISION-PENDING: D36 — who approves and pays the agents' monthly commission statements.
+/** Recomputes, approves and marks paid the commission statements: Finances and Administrateur. */
+export function canManageCommissions(role: AdminRole): boolean {
+  return role === "finances" || role === "administrateur";
+}
+
+/** Maintains the commission scale (new versions of `commission_rules`): Administrateur only. */
+export function canEditCommissionRules(role: AdminRole): boolean {
+  return role === "administrateur";
+}

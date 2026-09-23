@@ -57,6 +57,8 @@ Un seul processus, `pnpm worker` (`scripts/worker.ts`, pg-boss, schéma `pgboss`
 | `reconcile-daily` | 23:30 | relevé de chaque canal pour la journée écoulée, rapprochement, écarts |
 | `penalties-daily` | 00:10 | inscrit les pénalités de retard calculées par le moteur sur les obligations ouvertes |
 | `notify-flush` | chaque minute | envoie les SMS en file |
+| `positions-purge` | 01:00 | supprime les positions d'agents de plus de 90 jours (décision D38) |
+| `commissions-monthly` | 00:20 (mois en cours) et 00:30 le 1er (mois écoulé) | recalcule les relevés de commissions en brouillon ; les relevés approuvés ou payés ne bougent pas (décision D36) |
 
 Sur la VM : `docker compose --profile worker up -d worker`. Sans worker, un cron externe peut appeler les mêmes traitements :
 

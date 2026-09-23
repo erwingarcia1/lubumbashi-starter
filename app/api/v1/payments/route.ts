@@ -1,5 +1,6 @@
 import { fail, ok, parseBody } from "@/lib/api/respond";
 import { getDb } from "@/lib/db/client";
+import { guardCollectionPosition } from "@/lib/geo/collection";
 import { getAgentSession } from "@/lib/identity/agent-session";
 import { PaymentConfigError } from "@/lib/payments/registry";
 import { PaymentError, initiateInput, initiatePayment } from "@/lib/payments/service";
@@ -7,7 +8,9 @@ import { limits } from "@/lib/security/rate-limit";
 import { z } from "zod";
 
 const body = initiateInput.extend({
-  gps: z.object({ lng: z.number(), lat: z.number() }).optional(),
+  gps: z
+    .object({ lng: z.number(), lat: z.number(), accuracyM: z.number().min(0).optional() })
+    .optional(),
 });
 
 /** Agent surface: initiate only (invariant 2). Confirmation comes from the provider. */
@@ -21,6 +24,17 @@ export async function POST(request: Request) {
   if ("error" in parsed) return parsed.error;
   try {
     const { gps, ...input } = parsed.data;
+    // Geofence (D37): outside the agent's zone the request never reaches a provider; without a
+    // position it is refused in production only (lib/geo/policy.ts).
+    const guard = await guardCollectionPosition(getDb(), session, input.taxpayerNo, gps);
+    if (!guard.ok)
+      return fail(
+        guard.code,
+        422,
+        guard.code === "outside_zone"
+          ? { distanceM: guard.distanceM, allowedM: guard.allowedM, zone: guard.zone }
+          : undefined,
+      );
     const view = await initiatePayment(
       getDb(),
       {
@@ -28,7 +42,7 @@ export async function POST(request: Request) {
         agentId: session.agentId,
         matricule: session.matricule,
         deviceId: session.deviceId,
-        gps,
+        gps: gps ? { lng: gps.lng, lat: gps.lat } : undefined,
       },
       input,
     );

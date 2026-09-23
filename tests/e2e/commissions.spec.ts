@@ -1,0 +1,118 @@
+import { expect, test, type Page } from "@playwright/test";
+
+/**
+ * Agent commissions (D36): the agent reads what the month earned; Finances recomputes the
+ * drafts, approves AG-KAM-007's statement and marks it paid; the Auditeur only reads.
+ * Re-runnable: once a statement is paid it stays paid, and the test then checks that state.
+ */
+const PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "Lubumbashi2026!";
+const MONTH = /FC/;
+
+async function loginAdmin(page: Page, email: string) {
+  await page.goto("/admin/login");
+  await page.getByLabel("Adresse e-mail").fill(email);
+  await page.getByLabel("Mot de passe").fill(PASSWORD);
+  await page.getByRole("button", { name: "Se connecter" }).click();
+  await expect(page).toHaveURL(/\/admin(\?|$)/);
+}
+
+test.describe("agent app", () => {
+  test.use({ viewport: { width: 390, height: 780 } });
+
+  test("AG-KAM-007 opens Mes commissions and sees the month total; the API returns the same view", async ({
+    page,
+  }) => {
+    await page.goto("/agent/login");
+    await page.getByLabel("Matricule agent").fill("AG-KAM-007");
+    await page.getByLabel("Code PIN").fill("123456");
+    await page.getByRole("button", { name: "Se connecter" }).click();
+    await expect(page).toHaveURL(/\/agent$/);
+    await page.getByRole("link", { name: /Mes commissions/ }).click();
+    await expect(page).toHaveURL(/\/agent\/commissions$/);
+    await expect(page.getByText("Mes commissions").first()).toBeVisible();
+    await expect(page.getByText("Total du mois")).toBeVisible();
+    await expect(page.getByText("Commission sur encaissements")).toBeVisible();
+    await expect(page.getByText("Prime de recensement")).toBeVisible();
+    await expect(page.getByText(/Barème : 5 % des encaissements confirmés/)).toBeVisible();
+    await expect(page.getByText("Détail par jour")).toBeVisible();
+    const total = await page.locator("dd").last().textContent();
+    expect(total).toMatch(MONTH);
+
+    const res = await page.request.get("/api/v1/agent/commissions?month=2026-09");
+    expect(res.status()).toBe(200);
+    const body = (await res.json()) as {
+      ok: boolean;
+      data: { period: string; totals: { totalFc: number; collectionsCount: number } };
+    };
+    expect(body.ok).toBe(true);
+    expect(body.data.period).toBe("2026-09");
+    expect(body.data.totals.collectionsCount).toBeGreaterThan(0);
+    expect(Number.isInteger(body.data.totals.totalFc)).toBe(true);
+    expect((await page.request.get("/api/v1/agent/commissions?month=2026-13")).status()).toBe(422);
+  });
+});
+
+test("Finances recomputes the drafts, approves AG-KAM-007's statement and marks it paid; the Auditeur only reads", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await loginAdmin(page, "ngoy.k@lubumbashi.cd");
+  await page.goto("/admin/commissions?mois=2026-09");
+  await expect(page.getByRole("heading", { name: /Commissions des agents/ })).toBeVisible();
+  await expect(page.getByText("Barème des commissions")).toBeVisible();
+
+  const submitAndWait = async (click: () => Promise<void>) => {
+    const before = page.url();
+    await click();
+    await page.waitForURL((u) => u.toString() !== before, { timeout: 60_000 });
+    await page.waitForLoadState("networkidle");
+  };
+  await submitAndWait(() =>
+    page.getByRole("button", { name: "Recalculer les brouillons" }).click(),
+  );
+  await expect(page.getByText("Brouillons recalculés pour le mois.")).toBeVisible();
+
+  const row = () => page.locator("tbody tr").filter({ hasText: "AG-KAM-007" }).first();
+  await expect(row()).toContainText("Kalenga Mbuyi");
+  await expect(row()).toContainText(/FC/);
+  if (await row().getByRole("button", { name: "Approuver" }).isVisible()) {
+    await submitAndWait(() => row().getByRole("button", { name: "Approuver" }).click());
+    await expect(page.getByText("Relevé approuvé : ses lignes sont figées.")).toBeVisible();
+    await expect(row()).toContainText("Approuvé");
+  }
+  if (await row().getByRole("button", { name: "Marquer payé" }).isVisible()) {
+    await row()
+      .getByLabel(/Référence du virement AG-KAM-007/)
+      .fill("VIR-TEST-1");
+    await submitAndWait(() => row().getByRole("button", { name: "Marquer payé" }).click());
+    await expect(page.getByText("Relevé marqué payé.")).toBeVisible();
+  }
+  await expect(row()).toContainText("Payé");
+  await expect(row()).toContainText("VIR-TEST-1");
+  await expect(row().getByRole("button")).toHaveCount(0);
+
+  // The Excel export of the month downloads.
+  const xlsx = await page.request.get(
+    "/api/v1/admin/reports/commissions?format=xlsx&month=2026-09",
+  );
+  expect(xlsx.status()).toBe(200);
+  expect(xlsx.headers()["content-type"]).toContain("spreadsheetml");
+  expect((await xlsx.body()).subarray(0, 2).toString()).toBe("PK");
+
+  // Finances does not edit the scale.
+  await expect(page.getByRole("button", { name: "Enregistrer la version" })).toHaveCount(0);
+  await expect(page.getByText("Seul l’Administrateur modifie le barème.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Se déconnecter" }).click();
+  await loginAdmin(page, "auditeur@lubumbashi.cd");
+  await page.goto("/admin/commissions?mois=2026-09");
+  await expect(page.getByRole("heading", { name: /Commissions des agents/ })).toBeVisible();
+  await expect(page.getByText(/^Lecture seule/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Recalculer les brouillons" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Approuver" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Marquer payé" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Enregistrer la version" })).toHaveCount(0);
+  await expect(page.locator("tbody tr").filter({ hasText: "AG-KAM-007" }).first()).toContainText(
+    "Payé",
+  );
+});

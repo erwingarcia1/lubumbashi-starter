@@ -41,6 +41,22 @@ const COLORS: Record<Channel, string> = {
 const P = t.agent.pay;
 const WAIT_SECONDS = 120;
 
+/** Geofence refusals (D37): `outside_zone` carries the distance and the zone, `position_required` nothing. */
+function geofenceMessage(
+  error:
+    | { code: string; details?: { distanceM?: number; allowedM?: number; zone?: string } }
+    | undefined,
+): string | null {
+  if (!error) return null;
+  const G = t.agent.tracking.errors;
+  if (error.code === "position_required") return G.position_required;
+  if (error.code !== "outside_zone") return null;
+  return G.outside_zone
+    .replace("{zone}", error.details?.zone ?? "")
+    .replace("{distance}", String(error.details?.distanceM ?? ""))
+    .replace("{allowed}", String(error.details?.allowedM ?? ""));
+}
+
 function monthFr(iso: string): string {
   return new Intl.DateTimeFormat("fr-FR", {
     timeZone: "Africa/Lubumbashi",
@@ -91,10 +107,17 @@ export function CollectFlow({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ taxpayerNo, channel, gps }),
       });
-      const json = (await res.json()) as { ok: boolean; data?: View; error?: { code: string } };
+      const json = (await res.json()) as {
+        ok: boolean;
+        data?: View;
+        error?: {
+          code: string;
+          details?: { distanceM?: number; allowedM?: number; zone?: string };
+        };
+      };
       if (!json.ok || !json.data) {
         const code = json.error?.code as keyof typeof P.errors | undefined;
-        setError((code && P.errors[code]) ?? P.errors.network);
+        setError(geofenceMessage(json.error) ?? (code && P.errors[code]) ?? P.errors.network);
         return;
       }
       setView(json.data);

@@ -119,6 +119,25 @@ export default async function AgentHomePage() {
           </div>
         </div>
         <Link
+          href="/agent/commissions"
+          className="flex min-h-12 items-center gap-2.5 rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-2.5"
+        >
+          <span aria-hidden="true" className="text-lg leading-none">
+            ★
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13.5px] font-semibold">
+              {t.agent.commissions.homeLink}
+            </span>
+            <span className="block truncate text-[12px] text-[#5C5456]">
+              {t.agent.commissions.homeHint}
+            </span>
+          </span>
+          <span aria-hidden="true" className="text-[#8E8688]">
+            ›
+          </span>
+        </Link>
+        <Link
           href="/agent/scanner"
           className="block min-h-12 rounded-lg bg-[#C1121F] px-3.5 py-3 text-center text-[15px] font-semibold text-white"
         >
