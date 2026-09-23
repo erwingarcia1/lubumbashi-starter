@@ -1,5 +1,13 @@
 import { sql } from "drizzle-orm";
-import { integer, text, timestamp, uniqueIndex, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import {
+  geometry,
+  integer,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  type AnyPgColumn,
+} from "drizzle-orm/pg-core";
 
 import { app, zoneLevel } from "./enums";
 
@@ -13,6 +21,12 @@ export const zones = app.table(
     code: text("code").notNull(),
     name: text("name").notNull(),
     parentId: uuid("parent_id").references((): AnyPgColumn => zones.id),
+    /**
+     * Geofence placeholder until cadastre polygons exist (D6): a circle of `radius_m` around
+     * `centroid`. Null = no fence. DECISION-PENDING: D37 — where an agent may collect.
+     */
+    centroid: geometry("centroid", { type: "point", mode: "xy", srid: 4326 }),
+    radiusM: integer("radius_m"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [

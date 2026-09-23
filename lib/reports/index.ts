@@ -11,7 +11,9 @@ import { closeHistory } from "@/lib/reconciliation/actions";
 import { reconciliationDay } from "@/lib/reconciliation/view";
 import { businessDate, monthPeriodOf } from "@/lib/time";
 
-import { sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+
+import { commissionRules, obligations, taxRules, taxpayers } from "@/lib/db/schema";
 
 import { tablePdf, type PdfSection } from "./pdf";
 import { workbook } from "./xlsx";
@@ -24,6 +26,8 @@ export const REPORT_CODES = [
   "reconciliation",
   "audit",
   "receipts",
+  "invoices",
+  "commissions",
 ] as const;
 export type ReportCode = (typeof REPORT_CODES)[number];
 export type ReportFormat = "xlsx" | "pdf" | "csv";
@@ -38,6 +42,8 @@ export const REPORTS: Record<
   reconciliation: { formats: ["pdf"], param: "day" },
   audit: { formats: ["csv"], param: "none" },
   receipts: { formats: ["xlsx"], param: "month" },
+  invoices: { formats: ["pdf"], param: "month" },
+  commissions: { formats: ["xlsx"], param: "month" },
 };
 
 export const reportParams = z.object({
@@ -411,6 +417,103 @@ export async function buildReport(
         contentType: TYPES.csv,
         rows: rows.length,
         body: Buffer.from(auditCsv(rows), "utf8"),
+      };
+    }
+    case "invoices": {
+      // FEATURE-INVOICES-REPORT: placeholder list until the notes de perception feature fills it.
+      const m = monthOf(p, now);
+      const D = t.admin.taxpayers.detail.columns;
+      const rows = await db
+        .select({
+          invoiceNo: obligations.invoiceNo,
+          taxpayerNo: taxpayers.taxpayerNo,
+          name: taxpayers.fullName,
+          tax: taxRules.labelFr,
+          periodStart: obligations.periodStart,
+          amountFc: obligations.amountFc,
+          penaltyFc: obligations.penaltyFc,
+          paidFc: obligations.paidFc,
+          dueDate: obligations.dueDate,
+        })
+        .from(obligations)
+        .innerJoin(taxpayers, eq(taxpayers.id, obligations.taxpayerId))
+        .innerJoin(taxRules, eq(taxRules.id, obligations.taxRuleId))
+        .where(
+          and(
+            inArray(obligations.status, ["due", "partially_paid"]),
+            gte(obligations.periodStart, m.period.start),
+            lte(obligations.periodStart, m.period.end),
+          ),
+        )
+        .orderBy(asc(taxpayers.taxpayerNo), asc(obligations.periodStart));
+      return {
+        filename: `notes-perception-${p.month ?? businessDate(now).slice(0, 7)}.pdf`,
+        contentType: TYPES.pdf,
+        rows: rows.length,
+        body: await tablePdf(
+          L,
+          m.label,
+          [
+            {
+              title: L,
+              columns: [
+                { header: R.columns.reference, key: "invoiceNo", width: 3 },
+                { header: R.columns.taxpayerNo, key: "taxpayerNo", width: 3 },
+                { header: R.columns.name, key: "name", width: 4 },
+                { header: D.tax, key: "tax", width: 3 },
+                { header: D.period, key: "period", width: 2 },
+                { header: R.columns.outstanding, key: "outstanding", width: 2, align: "right" },
+                { header: D.due, key: "due", width: 2 },
+              ],
+              rows: rows.map((r) => ({
+                invoiceNo: r.invoiceNo ?? t.common.none,
+                taxpayerNo: r.taxpayerNo,
+                name: r.name,
+                tax: r.tax,
+                period: formatMonthFr(r.periodStart),
+                outstanding: formatFC(Math.max(0, r.amountFc + r.penaltyFc - r.paidFc)),
+                due: formatDateFr(r.dueDate),
+              })),
+            },
+          ],
+          now,
+        ),
+      };
+    }
+    case "commissions": {
+      // FEATURE-COMMISSIONS-REPORT: placeholder until the commissions feature fills it (D36).
+      const m = monthOf(p, now);
+      const agentRows = await agentsTable(db, now);
+      const [rule] = await db
+        .select()
+        .from(commissionRules)
+        .where(eq(commissionRules.code, "collection_percent"))
+        .orderBy(desc(commissionRules.effectiveFrom))
+        .limit(1);
+      const rateBp = rule?.rateBp ?? 0;
+      const rows = agentRows.map((a) => ({
+        agent: a.matricule,
+        name: a.fullName,
+        collections: a.collections,
+        collectedFc: a.amountFc,
+        commissionFc: Math.round((a.amountFc * rateBp) / 10_000),
+      }));
+      return {
+        filename: `commissions-${p.month ?? businessDate(now).slice(0, 7)}.xlsx`,
+        contentType: TYPES.xlsx,
+        rows: rows.length,
+        body: await workbook(
+          L,
+          [
+            { header: t.admin.agents.columns.agent, key: "agent", width: 14 },
+            { header: R.columns.name, key: "name", width: 28 },
+            { header: R.columns.count, key: "collections", width: 10 },
+            { header: R.columns.collected, key: "collectedFc", width: 16 },
+            { header: t.admin.nav.commissions, key: "commissionFc", width: 16 },
+          ],
+          rows,
+          m.label,
+        ),
       };
     }
     case "receipts": {

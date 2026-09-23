@@ -23,6 +23,8 @@ import { writeAudit } from "@/lib/audit/write";
 import { createDb, type Db } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
 import { allocateReceiptNo } from "@/lib/identity/ids";
+import { COMMUNE_CENTERS } from "@/lib/admin/map-center";
+import { businessDate } from "@/lib/time";
 import { DEFAULT_APPROVAL_POLICY } from "@/lib/identity/roles";
 import { RULE_VERSION_APPROVAL_KEY } from "@/lib/admin/settings";
 import { ensurePhotoBucket } from "@/lib/census/photos";
@@ -44,6 +46,60 @@ const communes = [
   ["RUA", "Ruashi"],
   ["ANN", "Annexe"],
 ] as const;
+
+/** Approximate quartier centres for the geofence placeholder (D37): [code, lng, lat]. */
+const quartierCentroids: Array<[string, number, number]> = [
+  ["bel-air", 27.4935, -11.6645],
+  ["kigoma", 27.4905, -11.6689],
+  ["kampemba-centre", 27.505, -11.662],
+  ["bel-air-sud", 27.494, -11.668],
+  ["marche-kenya", 27.47, -11.68],
+];
+
+// DECISION-PENDING: D36 — the Mairie's commission scheme; these are placeholders.
+const commissionRuleRows = [
+  {
+    code: "collection_percent",
+    labelFr: "Commission sur encaissement",
+    basis: "collection_percent" as const,
+    rateBp: 500,
+    amountFc: 0,
+    effectiveFrom: "2026-01-01",
+  },
+  {
+    code: "registration_fixed",
+    labelFr: "Prime par ménage recensé",
+    basis: "registration_fixed" as const,
+    rateBp: 0,
+    amountFc: 500,
+    effectiveFrom: "2026-01-01",
+  },
+];
+
+/** A morning in Bel-Air: [HH:MM local, lng, lat, accuracy m]; two points are census fixes. */
+const demoTrail: Array<[string, number, number, number]> = [
+  ["08:02", 27.4921, -11.6631, 9],
+  ["08:05", 27.4924, -11.6634, 8],
+  ["08:08", 27.4928, -11.6637, 7],
+  ["08:11", 27.4931, -11.664, 6],
+  ["08:16", 27.493, -11.6642, 5],
+  ["08:35", 27.4933, -11.6644, 6],
+  ["08:38", 27.4936, -11.6647, 8],
+  ["08:41", 27.494, -11.6649, 11],
+  ["08:44", 27.4944, -11.6651, 9],
+  ["08:52", 27.4948, -11.6651, 5],
+  ["09:20", 27.4946, -11.6655, 7],
+  ["09:23", 27.4941, -11.6658, 6],
+  ["09:26", 27.4937, -11.6661, 8],
+  ["09:29", 27.4933, -11.6663, 7],
+  ["10:05", 27.4933, -11.6663, 6],
+  ["10:35", 27.4934, -11.6664, 12],
+  ["11:05", 27.4934, -11.6664, 14],
+  ["11:35", 27.4931, -11.6655, 9],
+  ["11:38", 27.4927, -11.6648, 8],
+  ["11:41", 27.4923, -11.6641, 7],
+  ["11:44", 27.492, -11.6634, 6],
+];
 
 const quartiers = [
   ["bel-air", "Bel-Air"],
@@ -519,6 +575,22 @@ export async function runSeed(db: Db): Promise<SeedSummary> {
         created.push(`quartier ${code}`);
       }
     }
+    // Geofence circles (D37 placeholder until cadastre polygons, D6): communes from the map
+    // centroids, Kampemba quartiers around the prototype's households. Idempotent updates.
+    for (const [code, c] of Object.entries(COMMUNE_CENTERS)) {
+      await tx
+        .update(s.zones)
+        .set({ centroid: { x: c.lng, y: c.lat }, radiusM: code === "ANN" ? 12_000 : 4_000 })
+        .where(and(eq(s.zones.level, "commune"), eq(s.zones.code, code)));
+    }
+    for (const [code, lng, lat] of quartierCentroids) {
+      await tx
+        .update(s.zones)
+        .set({ centroid: { x: lng, y: lat }, radiusM: 1_500 })
+        .where(
+          and(eq(s.zones.level, "quartier"), eq(s.zones.parentId, kam), eq(s.zones.code, code)),
+        );
+    }
     await tx.execute(
       sql`insert into app.id_counters (commune_code, last) values ('KAM', 131) on conflict (commune_code) do update set last = greatest(app.id_counters.last, 131)`,
     );
@@ -606,6 +678,23 @@ export async function runSeed(db: Db): Promise<SeedSummary> {
         labelFr: r.labelFr,
         taxCode: r.taxCode,
       });
+    }
+
+    // --- commission rules (D36 placeholder: 5 % of collections, 500 FC per registration) ------
+    for (const r of commissionRuleRows) {
+      const [row] = await tx
+        .select({ id: s.commissionRules.id })
+        .from(s.commissionRules)
+        .where(
+          and(
+            eq(s.commissionRules.code, r.code),
+            eq(s.commissionRules.effectiveFrom, r.effectiveFrom),
+          ),
+        );
+      if (!row) {
+        await tx.insert(s.commissionRules).values(r);
+        created.push(`commission rule ${r.code}`);
+      }
     }
 
     // --- admins, agents, devices -------------------------------------------------------------
@@ -1070,6 +1159,30 @@ export async function runSeed(db: Db): Promise<SeedSummary> {
       .insert(s.settings)
       .values({ key: RULE_VERSION_APPROVAL_KEY, value: DEFAULT_APPROVAL_POLICY })
       .onConflictDoNothing();
+
+    // --- a morning trail for AG-KAM-007 on the seed day (screen d-agents activity, D38) --------
+    const trailDay = businessDate(new Date());
+    const trailAgent = agentId.get("AG-KAM-007")!;
+    const [hasTrail] = await tx
+      .select({ id: s.agentPositions.id })
+      .from(s.agentPositions)
+      .where(
+        and(eq(s.agentPositions.agentId, trailAgent), eq(s.agentPositions.businessDate, trailDay)),
+      )
+      .limit(1);
+    if (!hasTrail) {
+      await tx.insert(s.agentPositions).values(
+        demoTrail.map(([hhmm, lng, lat, accuracyM], i) => ({
+          agentId: trailAgent,
+          deviceId: deviceId.get("DEV-3F9A") ?? null,
+          recordedAt: new Date(`${trailDay}T${hhmm}:00+02:00`),
+          location: { x: lng, y: lat },
+          accuracyM,
+          source: (i === 4 || i === 9 ? "census" : "ping") as "census" | "ping",
+        })),
+      );
+      created.push(`trail AG-KAM-007 ${trailDay}`);
+    }
   });
 
   // --- Supabase Auth users for the admins (identity only; roles live in admin_users) ------

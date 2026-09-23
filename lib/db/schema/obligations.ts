@@ -50,6 +50,9 @@ export const obligations = app.table(
      */
     invoiceNo: text("invoice_no"),
     invoiceToken: text("invoice_token"),
+    /** First issue of the note de perception (PDF) from the back office; later prints re-issue. */
+    invoiceIssuedAt: timestamp("invoice_issued_at", { withTimezone: true }),
+    invoiceIssuedByAdminId: uuid("invoice_issued_by_admin_id").references(() => admins.id),
     waivedReason: text("waived_reason"),
     waivedByAdminId: uuid("waived_by_admin_id").references(() => admins.id),
     cancelledReason: text("cancelled_reason"),

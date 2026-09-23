@@ -94,6 +94,12 @@ One per Claude Code session. Do the first unchecked one. Mark it `[x]` with a sh
 - Census without GPS: specific French messages (refused, unavailable, unsupported), retry with a low-accuracy fallback, hand-placed point on a map outside production (`lib/census/position.ts`, D34, audited as manual with WHERE = IP), communes without quartiers greyed out so step 1 cannot dead-end.
 - Deploy: `docs/DEPLOY-AWS.en.md` verified; demo server `https://13-244-143-138.sslip.io` (EC2 af-south-1 + Supabase Frankfurt); regression `pnpm test:e2e:remote`; `docs/UAT.md` for the product owners.
 
+## Post-demo features (requested 2026-09-23)
+Foundation: migration `0010_post_demo_features` (commission rules/statements/lines, agent positions, zone geofence circle, obligation invoice issue stamp), decisions D35–D38, seed data (zone centroids, commission rules, a sample trail).
+- FEATURE-INVOICES-MILESTONE
+- FEATURE-COMMISSIONS-MILESTONE
+- FEATURE-TRACKING-MILESTONE
+
 ## Later (not before DECISIONS are answered)
 - Real providers: `mpesa`, `airtel`, `orange`, `tpe` — one session each.
 - Real SMS (Africa's Talking) and WhatsApp Cloud API.

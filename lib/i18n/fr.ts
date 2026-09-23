@@ -89,6 +89,8 @@ export const fr = {
     appName: "Recouvrement",
     appSubtitle: "Application agent de terrain",
     tabs: { home: "Accueil", register: "Recenser", scan: "Scanner", sync: "Sync" },
+    // FEATURE-COMMISSIONS-AGENT-STRINGS
+    // FEATURE-TRACKING-AGENT-STRINGS
     login: {
       hello: "Bonjour",
       subtitle: "Connectez-vous pour démarrer votre tournée",
@@ -522,6 +524,14 @@ export const fr = {
         },
         reconciliation: { label: "Rapprochement du jour", body: "Écarts et clôtures · PDF" },
         audit: { label: "Journal d’audit", body: "Export complet · CSV" },
+        invoices: {
+          label: "Notes de perception du mois",
+          body: "Une note par obligation due, prête à imprimer · PDF",
+        },
+        commissions: {
+          label: "Commissions des agents",
+          body: "Par agent, encaissements et montants dus · Excel",
+        },
         receipts: {
           label: "Liste des reçus",
           body: "Tous les reçus émis avec références fournisseurs · Excel",
@@ -653,8 +663,12 @@ export const fr = {
       taxes: "Taxes & barèmes",
       audit: "Journal d’audit",
       reports: "Rapports",
+      commissions: "Commissions",
       settings: "Réglages",
     },
+    // FEATURE-INVOICES-STRINGS
+    // FEATURE-COMMISSIONS-STRINGS
+    // FEATURE-TRACKING-STRINGS
     login: {
       title: "Tableau de bord Mairie",
       subtitle: "Connectez-vous avec votre adresse professionnelle",

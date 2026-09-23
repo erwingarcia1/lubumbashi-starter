@@ -66,6 +66,24 @@ export const adminRole = app.enum("admin_role", [
 ]);
 export const actorType = app.enum("actor_type", ["admin", "agent", "system", "taxpayer"]);
 
+/** Agent commissions (D36): how a rule computes, statement life cycle, statement line kinds. */
+export const commissionBasis = app.enum("commission_basis", [
+  "collection_percent",
+  "registration_fixed",
+]);
+export const commissionStatementStatus = app.enum("commission_statement_status", [
+  "draft",
+  "approved",
+  "paid",
+]);
+export const commissionLineKind = app.enum("commission_line_kind", [
+  "collection",
+  "reversal",
+  "registration",
+]);
+/** Where an agent position came from (D38). */
+export const positionSource = app.enum("position_source", ["ping", "census", "payment"]);
+
 export const photoKind = app.enum("photo_kind", ["facade", "person", "id_card", "other"]);
 
 export const reconciliationRunStatus = app.enum("reconciliation_run_status", [

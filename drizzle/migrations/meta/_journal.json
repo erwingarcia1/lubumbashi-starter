@@ -71,6 +71,13 @@
       "when": 1789327771572,
       "tag": "0009_pgboss_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790184346042,
+      "tag": "0010_post_demo_features",
+      "breakpoints": true
     }
   ]
 }
