@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 
+import { actorOf, deviceOf, whereOf } from "@/lib/admin/context";
 import { writeAudit } from "@/lib/audit/write";
 import type { Db } from "@/lib/db/client";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/lib/db/schema";
 import type { AgentSession } from "@/lib/identity/agent-session";
 import { allocateTaxpayerId } from "@/lib/identity/ids";
+import type { AdminSession } from "@/lib/identity/session";
 import { issuePortalLink } from "@/lib/portal/links";
 import { computeObligations, type Rule } from "@/lib/tax-engine";
 
@@ -30,6 +32,27 @@ export class CensusError extends Error {
     super(code);
     this.name = "CensusError";
   }
+}
+
+/** A Mairie user registering from the dashboard (`/admin/contribuables/nouveau`). */
+export interface AdminRegistrationActor {
+  type: "admin";
+  session: AdminSession;
+}
+
+/**
+ * Who registers: a field agent (its device and GPS are the audit WHERE/DEVICE) or a Mairie user
+ * at the back office (WHERE = request IP, DEVICE = user agent, position always hand-placed).
+ */
+export type RegistrationActor = AgentSession | AdminRegistrationActor;
+
+export function isAdminActor(actor: RegistrationActor): actor is AdminRegistrationActor {
+  return "type" in actor && actor.type === "admin";
+}
+
+export interface RegistrationContext {
+  ip?: string | undefined;
+  userAgent?: string | undefined;
 }
 
 export interface RegistrationResult {
@@ -56,20 +79,32 @@ export async function loadRules(db: Db): Promise<Rule[]> {
 /**
  * Registers a taxpayer and its first entity: municipal ID from the commune counter, obligations
  * from the tax engine for the registration period onward, a registration SMS queued, one audit
- * row with the agent, GPS and device. Idempotent on `clientUuid` (M8 offline sync).
+ * row with the actor, GPS and device. Idempotent on `clientUuid` (M8 offline sync).
+ *
+ * An agent's record carries the device position (or, outside production, a hand-placed point,
+ * D34). A back-office record is always hand-placed: the office has no device GPS, so the audit
+ * row says `gpsSource: "manual"`, `registeredFrom: "back_office"`, WHERE = IP, DEVICE = user
+ * agent, and `registered_by_agent_id` / `registered_device_id` stay null.
  */
 export async function registerTaxpayer(
   db: Db,
-  session: AgentSession,
+  actor: RegistrationActor,
   raw: CensusInput,
   now = new Date(),
-  ctx: { ip?: string | undefined } = {},
+  ctx: RegistrationContext = {},
   env: Record<string, string | undefined> = process.env,
 ): Promise<RegistrationResult> {
   const input = censusInput.parse(raw);
-  const manual = input.entity.gps.source === "manual";
-  // DECISION-PENDING: D34 — hand-placed positions are refused in production.
-  if (manual && !manualPositionAllowed(env)) throw new CensusError("manual_position_refused");
+  const admin = isAdminActor(actor);
+  const agent = isAdminActor(actor) ? null : actor;
+  const auditActor = isAdminActor(actor)
+    ? actorOf(actor.session)
+    : { type: "agent" as const, id: actor.agentId, role: "agent" as const, label: actor.matricule };
+  const manual = admin || input.entity.gps.source === "manual";
+  // DECISION-PENDING: D34 — an agent's hand-placed position is refused in production; a
+  // back-office registration is hand-placed by nature and accepted everywhere, audited as such.
+  if (manual && !admin && !manualPositionAllowed(env))
+    throw new CensusError("manual_position_refused");
   const accuracyM = manual ? null : (input.entity.gps.accuracyM ?? null);
   const [existing] = await db
     .select({ id: taxpayers.id, taxpayerNo: taxpayers.taxpayerNo })
@@ -137,8 +172,8 @@ export async function registerTaxpayer(
         quartierId: quartier.id,
         address: input.taxpayer.address,
         registeredAt,
-        registeredByAgentId: session.agentId,
-        registeredDeviceId: session.deviceId,
+        registeredByAgentId: agent?.agentId ?? null,
+        registeredDeviceId: agent?.deviceId ?? null,
         clientUuid: input.clientUuid,
       })
       .returning({ id: taxpayers.id });
@@ -156,7 +191,7 @@ export async function registerTaxpayer(
         gpsAccuracyM: accuracyM,
         taxBaseFc: input.entity.taxBaseFc ?? null,
         registeredAt,
-        registeredByAgentId: session.agentId,
+        registeredByAgentId: agent?.agentId ?? null,
         clientUuid: input.clientUuid,
       })
       .returning({ id: entities.id });
@@ -220,7 +255,7 @@ export async function registerTaxpayer(
       payload: { taxpayerNo, fullName: input.taxpayer.fullName, portalUrl: link.url },
     });
     await writeAudit(tx, {
-      actor: { type: "agent", id: session.agentId, role: "agent", label: session.matricule },
+      actor: auditActor,
       action: "taxpayer.registered",
       object: { type: "taxpayer", id: taxpayerNo },
       details: {
@@ -229,15 +264,14 @@ export async function registerTaxpayer(
         clientUuid: input.clientUuid,
         gpsAccuracyM: accuracyM,
         gpsSource: manual ? "manual" : "device",
+        registeredFrom: agent ? "field" : "back_office",
         obligations: issued.length,
       },
       // Invariant 4: WHERE is the device GPS; a hand-placed point is not one, so the IP stands in.
       where: manual
-        ? ctx.ip
-          ? { ip: ctx.ip }
-          : undefined
+        ? whereOf(ctx)
         : { gps: { lng: input.entity.gps.lng, lat: input.entity.gps.lat } },
-      device: { id: session.deviceId },
+      device: agent ? { id: agent.deviceId } : deviceOf(ctx),
     });
     return {
       taxpayerNo,

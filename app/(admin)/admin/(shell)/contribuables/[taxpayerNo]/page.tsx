@@ -62,7 +62,9 @@ export default async function TaxpayerPage({
         ? D.contactSaved
         : ok === "category"
           ? D.categorySaved
-          : undefined;
+          : ok === "created"
+            ? `${t.admin.taxpayers.create.created} ${d.taxpayer.taxpayerNo}`
+            : undefined;
   const firstEntity = d.entities[0];
   const lateSince = d.obligations
     .filter((o) => o.dueDate < today && (o.status === "due" || o.status === "partially_paid"))

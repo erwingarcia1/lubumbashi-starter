@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { listTaxpayers } from "@/lib/admin/taxpayers";
 import { getDb } from "@/lib/db/client";
 import { zones } from "@/lib/db/schema";
+import { canEditTaxpayer } from "@/lib/identity/roles";
+import { requireAdmin } from "@/lib/identity/session";
 import { formatFC } from "@/lib/i18n/format";
 import { t } from "@/lib/i18n";
 
@@ -28,7 +30,7 @@ export default async function TaxpayersPage({
 }: {
   searchParams: Promise<{ q?: string; commune?: string; statut?: string; page?: string }>;
 }) {
-  const sp = await searchParams;
+  const [sp, session] = await Promise.all([searchParams, requireAdmin()]);
   const db = getDb();
   const communes = await db
     .select({ code: zones.code, name: zones.name })
@@ -49,6 +51,14 @@ export default async function TaxpayersPage({
     <>
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-bold">{t.admin.taxpayers.title}</h2>
+        {canEditTaxpayer(session.role) ? (
+          <Link
+            href="/admin/contribuables/nouveau"
+            className="inline-flex h-11 items-center rounded-md bg-[#C1121F] px-3 text-[12.5px] font-semibold text-white md:h-8"
+          >
+            + {t.admin.taxpayers.create.button}
+          </Link>
+        ) : null}
         <form
           className="ml-auto grid w-full grid-cols-2 gap-2 text-[12px] md:flex md:w-auto md:flex-wrap md:items-center md:gap-1.5"
           method="get"

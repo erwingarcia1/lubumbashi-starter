@@ -10,6 +10,7 @@ const ROUTES = [
   "/admin/carte",
   "/admin/contribuables",
   "/admin/contribuables/LUB-KAM-00000125",
+  "/admin/contribuables/nouveau",
   "/admin/agents",
   "/admin/agents/AG-KAM-007",
   "/admin/rapprochement",
