@@ -137,9 +137,12 @@ export function ActivityMap({
           />
         ) : null}
         {line.length > 1 ? (
+          // The class must be a creation option: Leaflet's setStyle (used for pathOptions
+          // updates) never touches the SVG class, so a production render would lose it.
           <Polyline
             positions={line}
-            pathOptions={{ color: "#2F4CA3", weight: 3, opacity: 0.8, className: "activity-trail" }}
+            className="activity-trail"
+            pathOptions={{ color: "#2F4CA3", weight: 3, opacity: 0.8 }}
           />
         ) : null}
         {points.map((p) => (

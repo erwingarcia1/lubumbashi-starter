@@ -53,7 +53,9 @@ test("Finances issues the note de perception of the September obligation from th
   const link = row.getByRole("link", { name: "Note de perception" });
   await expect(link).toHaveAttribute("href", href);
   await expect(link).toHaveAttribute("target", "_blank");
-  await expect(row).not.toContainText("émise le");
+  // On a shared demo database the note may already have been issued by an earlier print:
+  // then the first date must survive this re-print instead of being absent beforehand.
+  const issuedBefore = (await row.textContent())?.match(/émise le (\d{2}\/\d{2}\/\d{4})/)?.[1];
 
   // The click opens the PDF in a new tab (headless Chromium turns it into a download): the
   // navigation response is the note itself.
@@ -73,11 +75,13 @@ test("Finances issues the note de perception of the September obligation from th
   // The first issue is stamped and shown under the link; the journal has the action.
   await page.reload();
   const issuedRow = page.getByRole("row", { name: /sept\. 2026/ }).first();
-  await expect(issuedRow).toContainText(/émise le \d{2}\/\d{2}\/\d{4}/);
+  await expect(issuedRow).toContainText(
+    issuedBefore ? `émise le ${issuedBefore}` : /émise le \d{2}\/\d{2}\/\d{4}/,
+  );
   await expect(issuedRow.getByRole("link", { name: "Note de perception" })).toBeVisible();
   await page.goto(`/admin/audit?action=invoice.issued&object=${invoiceNo}`);
   await expect(page.getByText(invoiceNo).first()).toBeVisible();
-  await expect(page.getByText("ngoy.k@lubumbashi.cd").first()).toBeVisible();
+  if (!issuedBefore) await expect(page.getByText("ngoy.k@lubumbashi.cd").first()).toBeVisible();
 
   // The print run of the month is hers too: the card is enabled and the API serves the batch.
   await page.goto("/admin/rapports");
