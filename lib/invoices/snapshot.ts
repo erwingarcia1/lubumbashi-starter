@@ -151,6 +151,19 @@ export function toInvoiceSnapshot(
   };
 }
 
+/**
+ * Pure: the snapshot as it prints once stamped at `now` by `issuedBy` (an admin's full name, or
+ * null for the system actor of a job). The note is rendered from it BEFORE the stamp is written,
+ * so a failed render leaves the note unissued.
+ */
+export function withFirstIssue(
+  snapshot: InvoiceSnapshot,
+  issuedBy: string | null,
+  now: Date,
+): InvoiceSnapshot {
+  return { ...snapshot, issuedAt: now.toISOString(), issuedBy, issuedBySystem: issuedBy === null };
+}
+
 const commune = alias(zones, "invoice_commune");
 const quartier = alias(zones, "invoice_quartier");
 

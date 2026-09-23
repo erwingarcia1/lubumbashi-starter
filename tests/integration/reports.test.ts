@@ -1,6 +1,9 @@
+import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { auditJournal } from "@/lib/admin/audit";
+import { admins } from "@/lib/db/schema";
+import type { AdminSession } from "@/lib/identity/session";
 import { buildReport, REPORT_CODES, REPORTS } from "@/lib/reports";
 import { businessDate } from "@/lib/time";
 import { runSeed } from "@/scripts/seed";
@@ -37,6 +40,20 @@ describe("audit journal and the six reports (M10)", () => {
   it("every report builds for the seeded data in each of its formats", async () => {
     const db = appDb();
     const now = new Date("2026-09-13T12:00:00+02:00");
+    // The print run of the notes de perception issues them, so it needs the issuing admin.
+    const [finances] = await db
+      .select({ id: admins.id, email: admins.email, fullName: admins.fullName })
+      .from(admins)
+      .where(eq(admins.email, "ngoy.k@lubumbashi.cd"));
+    const caller = {
+      session: {
+        adminId: finances!.id,
+        email: finances!.email,
+        fullName: finances!.fullName,
+        role: "finances" as const,
+      } as AdminSession,
+      ctx: { ip: "198.51.100.9", userAgent: "vitest" },
+    };
     for (const code of REPORT_CODES) {
       for (const format of REPORTS[code].formats) {
         const file = await buildReport(
@@ -44,6 +61,7 @@ describe("audit journal and the six reports (M10)", () => {
           code,
           { format, month: "2026-09", day: "2026-09-13" },
           now,
+          code === "invoices" ? caller : undefined,
         );
         expect(file.filename.endsWith(`.${format}`)).toBe(true);
         expect(file.body.length).toBeGreaterThan(100);

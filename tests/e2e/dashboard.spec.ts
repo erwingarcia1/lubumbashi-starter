@@ -67,7 +67,8 @@ test("the mayor's walkthrough: overview → alert → agents → revoke a device
   // Changing the commune applies immediately (no "Rechercher" click); Ruashi has no census point yet,
   // so the map moves there and says so instead of staying on Kampemba.
   await page.getByLabel("Commune").selectOption("RUA");
-  await expect(page).toHaveURL(/commune=RUA/);
+  // A full GET navigation; on a loaded dev server the response can take longer than 5 s.
+  await expect(page).toHaveURL(/commune=RUA/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "Carte · Ruashi" })).toBeVisible();
   await expect(page.getByRole("status")).toHaveText("Aucun contribuable recensé pour ces filtres.");
   await expect(page.locator("path.leaflet-interactive")).toHaveCount(0);

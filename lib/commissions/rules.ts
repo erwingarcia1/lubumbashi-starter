@@ -56,6 +56,41 @@ export function ruleFor<R extends RuleLike>(
   return best;
 }
 
+export type RuleState = "active" | "upcoming" | "superseded";
+
+/**
+ * How a version reads on the scale table on `today`: the one `ruleFor` would pay an act with
+ * today is active; one that starts later is upcoming; anything else has been replaced (ended,
+ * or older than the version in force).
+ */
+export function ruleState<R extends RuleLike>(
+  rules: readonly R[],
+  rule: R,
+  today: string,
+): RuleState {
+  if (ruleFor(rules, rule.basis, today, rule.taxRuleId)?.id === rule.id) return "active";
+  if (rule.effectiveFrom > today) return "upcoming";
+  return "superseded";
+}
+
+/**
+ * The day a version stops applying: its `effectiveTo`, else the start of the next version of
+ * the same chain (same basis and tax), else null while it is open-ended.
+ */
+export function ruleEndOf<R extends RuleLike & { id: string }>(
+  rules: readonly R[],
+  rule: R,
+): string | null {
+  if (rule.effectiveTo !== null) return rule.effectiveTo;
+  let next: string | null = null;
+  for (const r of rules) {
+    if (r.id === rule.id || r.basis !== rule.basis || r.taxRuleId !== rule.taxRuleId) continue;
+    if (r.effectiveFrom <= rule.effectiveFrom) continue;
+    if (next === null || r.effectiveFrom < next) next = r.effectiveFrom;
+  }
+  return next;
+}
+
 // DECISION-PENDING: D22 — percentages in basis points, rounded half up to the franc.
 /** Commission on `baseFc` at `rateBp` (basis points), integer FC, half up. */
 export function commissionAmount(baseFc: number, rateBp: number): number {
@@ -95,8 +130,10 @@ export type CreateRuleInput = z.infer<typeof createRuleInput>;
 
 /**
  * A new version of the scale is a new row that starts on a future day (invariant 6): existing
- * rows are never edited, statements already approved keep their lines. Administrateur only.
- * The code and French label follow the latest version with the same basis.
+ * rows keep their values, statements already approved keep their lines. Administrateur only.
+ * The code, French label and tax follow the latest version with the same basis; that version
+ * ends the day the new one starts (like `approveRuleVersion` for tax rules), so one version at
+ * most is in force on any day. A version dated on or before the latest one is refused.
  */
 export async function createCommissionRule(
   db: Db,
@@ -126,6 +163,21 @@ export async function createCommissionRule(
       );
     if (existing)
       throw new AdminError("invalid_state", "a version already exists for this effective date");
+    if (latest && input.effectiveFrom <= latest.effectiveFrom)
+      throw new AdminError(
+        "invalid_input",
+        `effective_from must be after the latest version (${latest.effectiveFrom})`,
+      );
+    // The open latest version (same code, same tax) ends when the new one starts.
+    const supersedes =
+      latest && latest.effectiveTo === null && latest.effectiveFrom < input.effectiveFrom
+        ? latest
+        : null;
+    if (supersedes)
+      await tx
+        .update(commissionRules)
+        .set({ effectiveTo: input.effectiveFrom })
+        .where(eq(commissionRules.id, supersedes.id));
     const [created] = await tx
       .insert(commissionRules)
       .values({
@@ -150,6 +202,8 @@ export async function createCommissionRule(
         amountFc: created!.amountFc,
         effectiveFrom: input.effectiveFrom,
         previousRuleId: latest?.id ?? null,
+        // The version whose effective_to was set to this date, if any.
+        supersededRuleId: supersedes?.id ?? null,
       },
       where: whereOf(ctx),
       device: deviceOf(ctx),

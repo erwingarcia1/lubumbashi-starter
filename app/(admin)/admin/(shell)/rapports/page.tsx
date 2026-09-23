@@ -1,3 +1,4 @@
+import { canIssueInvoice } from "@/lib/identity/roles";
 import { requireAdmin } from "@/lib/identity/session";
 import { t } from "@/lib/i18n";
 import { REPORT_CODES, REPORTS } from "@/lib/reports";
@@ -17,6 +18,8 @@ export default async function ReportsPage() {
   const month = today.slice(0, 7);
   const yesterday = businessDate(new Date(requestNow().getTime() - 86_400_000));
   const canAudit = ["auditeur", "administrateur", "maire"].includes(session.role);
+  // The print run of the notes de perception issues them: same roles as the single note.
+  const canInvoices = canIssueInvoice(session.role);
   return (
     <>
       <h2 className="text-lg font-bold">{R.title}</h2>
@@ -24,7 +27,7 @@ export default async function ReportsPage() {
         {REPORT_CODES.map((code) => {
           const def = REPORTS[code];
           const item = R.items[code];
-          const disabled = code === "audit" && !canAudit;
+          const disabled = (code === "audit" && !canAudit) || (code === "invoices" && !canInvoices);
           return (
             <form
               key={code}

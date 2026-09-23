@@ -799,11 +799,19 @@ export async function runSeed(db: Db): Promise<SeedSummary> {
             quartierId: quartierId.get(t.quartier)!,
             address: t.address,
             registeredAt,
+            // Commissions attribute a registration to the month it reached the platform (D36):
+            // for the prototype's households that is the registration month itself.
+            createdAt: registeredAt,
             registeredByAgentId: ag007,
             registeredDeviceId: dev3f9a,
           })
           .returning({ id: s.taxpayers.id });
         created.push(`taxpayer ${t.no}`);
+      } else {
+        await tx
+          .update(s.taxpayers)
+          .set({ createdAt: registeredAt })
+          .where(and(eq(s.taxpayers.id, row.id), sql`${s.taxpayers.createdAt} <> ${registeredAt}`));
       }
       taxpayerId.set(t.no, row!.id);
       let [ent] = await tx

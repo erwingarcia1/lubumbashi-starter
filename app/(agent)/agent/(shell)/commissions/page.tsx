@@ -108,6 +108,7 @@ export default async function AgentCommissionsPage({
             </ul>
           )}
           <p className="mt-1 text-[11.5px] text-[#8E8688]">{C.reversalsNote}</p>
+          <p className="mt-1 text-[11.5px] text-[#8E8688]">{C.attributionNote}</p>
         </div>
 
         <div className="rounded-lg border border-[#E3DEDE] bg-white px-3.5 py-3">

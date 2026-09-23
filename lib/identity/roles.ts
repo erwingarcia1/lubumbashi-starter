@@ -60,11 +60,10 @@ export function canIssueInvoice(role: AdminRole): boolean {
   return role === "finances" || role === "administrateur" || role === "superviseur";
 }
 
-/** Reads an agent's field activity (positions, trail, stops): Superviseur, Administrateur, Maire, Auditeur (D38). */
+// DECISION-PENDING: D38 — who may see the trail.
+/** Reads an agent's field activity (positions, trail, stops): Superviseur, Administrateur, Maire. */
 export function canViewTracking(role: AdminRole): boolean {
-  return (
-    role === "superviseur" || role === "administrateur" || role === "maire" || role === "auditeur"
-  );
+  return role === "superviseur" || role === "administrateur" || role === "maire";
 }
 
 // DECISION-PENDING: D36 — who approves and pays the agents' monthly commission statements.

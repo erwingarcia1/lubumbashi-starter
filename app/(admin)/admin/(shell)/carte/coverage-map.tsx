@@ -116,6 +116,7 @@ export function CoverageMap({
             position={[a.lat, a.lng]}
             icon={agentIcon(a.matricule)}
             zIndexOffset={1000}
+            title={`${a.matricule} · ${a.fullName} · ${T.layer.seenAt} ${a.seenAt}`}
           >
             <Popup closeButton={false}>
               <b style={{ fontFamily: "monospace" }}>{a.matricule}</b>

@@ -1,6 +1,6 @@
 import { formatRateBp, formatSignedFC } from "@/lib/commissions/format";
 import { isPeriod, periodOf } from "@/lib/commissions/period";
-import { listRules } from "@/lib/commissions/rules";
+import { listRules, ruleEndOf, ruleState } from "@/lib/commissions/rules";
 import { listStatements } from "@/lib/commissions/statements";
 import { getDb } from "@/lib/db/client";
 import { admins, taxRules } from "@/lib/db/schema";
@@ -17,6 +17,13 @@ import { approveAction, createRuleAction, markPaidAction, recomputeAction } from
 
 const C = t.admin.commissions;
 const tone = { draft: "n", approved: "warn", paid: "ok" } as const;
+const ruleTone = { active: "ok", upcoming: "warn", superseded: "n" } as const;
+/** ISO day after an ISO day (calendar arithmetic only, no time zone involved). */
+const dayAfter = (iso: string) => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
 const fieldCls =
   "h-11 w-full min-w-0 rounded-md border border-[#D5CFCF] bg-white px-2 text-base text-[#1B1B1F] md:h-8 md:w-auto md:text-[12.5px]";
 const th = "border-b border-[#D5CFCF] px-2.5 py-2 font-semibold whitespace-nowrap";
@@ -239,7 +246,7 @@ export default async function CommissionsPage({
           <p className="px-3.5 pt-3 text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
             {C.rules.title}
           </p>
-          <table className="mt-2 w-full text-[12.5px]">
+          <table className="mt-2 w-full text-[12.5px]" aria-label={C.rules.title}>
             <thead>
               <tr className="text-left text-[10.5px] tracking-wider text-[#5C5456] uppercase">
                 {[
@@ -258,11 +265,17 @@ export default async function CommissionsPage({
             </thead>
             <tbody>
               {rules.map((r) => {
-                const inForce =
-                  r.effectiveFrom <= today && (r.effectiveTo === null || r.effectiveTo > today);
-                const upcoming = r.effectiveFrom > today;
+                // The engine decides (one version in force per chain), the table only reads it.
+                const state = ruleState(rules, r, today);
+                const end = ruleEndOf(rules, r);
                 return (
-                  <tr key={r.id} className="border-b border-[#EFEAEA]">
+                  <tr
+                    key={r.id}
+                    className="border-b border-[#EFEAEA]"
+                    data-code={r.code}
+                    data-effective-from={r.effectiveFrom}
+                    data-state={state}
+                  >
                     <td className={td}>
                       {r.labelFr}
                       <br />
@@ -276,16 +289,10 @@ export default async function CommissionsPage({
                     </td>
                     <td className={`${td} font-mono whitespace-nowrap`}>
                       {formatDateFr(r.effectiveFrom)}{" "}
-                      {inForce ? (
-                        <Pill tone="ok">{t.status.version.approved}</Pill>
-                      ) : upcoming ? (
-                        <Pill tone="warn">{t.status.version.upcoming}</Pill>
-                      ) : (
-                        <Pill tone="n">{t.status.version.superseded}</Pill>
-                      )}
+                      <Pill tone={ruleTone[state]}>{C.rules.states[state]}</Pill>
                     </td>
                     <td className={`${td} font-mono whitespace-nowrap`}>
-                      {r.effectiveTo ? formatDateFr(r.effectiveTo) : t.common.none}
+                      {end ? formatDateFr(end) : t.common.none}
                     </td>
                     <td className={td}>{nameOf(r.createdByAdminId)}</td>
                   </tr>
@@ -341,7 +348,7 @@ export default async function CommissionsPage({
                   type="date"
                   required
                   defaultValue={nextMonth}
-                  min={today}
+                  min={dayAfter(today)}
                   className={`${fieldCls} md:w-full`}
                 />
               </label>

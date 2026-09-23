@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { agentsTable, canManageAgents, zonesForAgents } from "@/lib/admin/agents";
 import { getDb } from "@/lib/db/client";
+import { canViewTracking } from "@/lib/identity/roles";
 import { requireAdmin } from "@/lib/identity/session";
 import { formatDateTimeFr, formatFC } from "@/lib/i18n/format";
 import { t } from "@/lib/i18n";
@@ -20,7 +21,12 @@ export default async function AgentsPage({
 }) {
   const [{ ok, error, matricule }, session] = await Promise.all([searchParams, requireAdmin()]);
   const db = getDb();
-  const [rows, communes] = await Promise.all([agentsTable(db), zonesForAgents(db)]);
+  // Field activity (D38) is read and shown only to the roles allowed to see the trail.
+  const canTrack = canViewTracking(session.role);
+  const [rows, communes] = await Promise.all([
+    agentsTable(db, requestNow(), { withTracking: canTrack }),
+    zonesForAgents(db),
+  ]);
   const A = t.admin.agents;
   const T = t.admin.tracking;
   const canRevoke = canManageAgents(session.role);
@@ -174,19 +180,23 @@ export default async function AgentsPage({
                   </td>
                   <td className="px-2.5 py-2">
                     {r.zone}
-                    <br />
-                    <Link
-                      href={`/admin/agents/${r.matricule}`}
-                      className="inline-block min-h-11 py-2.5 font-semibold text-[#C1121F] underline md:min-h-0 md:py-0"
-                    >
-                      {T.link}
-                    </Link>
-                    <span className="block text-[11.5px] whitespace-nowrap text-[#5C5456]">
-                      {T.snippet.today}{" "}
-                      {r.todayLastSeenAt
-                        ? `${T.snippet.lastSeen} ${formatTimeFr(r.todayLastSeenAt)} · ${formatKm(r.todayDistanceM)} · ${r.todayActs} ${T.snippet.acts}`
-                        : T.snippet.none}
-                    </span>
+                    {canTrack && r.today ? (
+                      <>
+                        <br />
+                        <Link
+                          href={`/admin/agents/${r.matricule}`}
+                          className="inline-block min-h-11 py-2.5 font-semibold text-[#C1121F] underline md:min-h-0 md:py-0"
+                        >
+                          {T.link}
+                        </Link>
+                        <span className="block text-[11.5px] whitespace-nowrap text-[#5C5456]">
+                          {T.snippet.today}{" "}
+                          {r.today.lastSeenAt
+                            ? `${T.snippet.lastSeen} ${formatTimeFr(r.today.lastSeenAt)} · ${formatKm(r.today.distanceM)} · ${r.today.acts} ${T.snippet.acts}`
+                            : T.snippet.none}
+                        </span>
+                      </>
+                    ) : null}
                   </td>
                   <td className="px-2.5 py-2 text-right font-mono">{r.registered}</td>
                   <td className="px-2.5 py-2 text-right font-mono">{r.collections}</td>

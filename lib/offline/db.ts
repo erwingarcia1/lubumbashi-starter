@@ -35,9 +35,14 @@ export interface CacheEntry {
   syncedAt: string;
 }
 
-/** A position ping waiting for the network (D38). Not an outbox item: pings are not records. */
+/**
+ * A position ping waiting for the network (D38). Not an outbox item: pings are not records. It
+ * carries the matricule of the agent logged in when it was taken: on a shared phone the next
+ * agent's session must never send (and so be credited with) a colleague's positions.
+ */
 export interface Ping {
   id?: number;
+  matricule: string;
   /** Device clock at the fix (ISO 8601). */
   recordedAt: string;
   lng: number;
@@ -56,11 +61,12 @@ export class AgentDb extends Dexie {
       outbox: "++id, clientUuid, status, createdAt",
       cache: "key",
     });
-    // Version 2 adds the position queue; the outbox keeps its kinds (invariant 3).
+    // Version 2 adds the position queue (indexed by agent for shared phones); the outbox keeps
+    // its kinds (invariant 3).
     this.version(2).stores({
       outbox: "++id, clientUuid, status, createdAt",
       cache: "key",
-      pings: "++id, recordedAt",
+      pings: "++id, recordedAt, matricule",
     });
   }
 }

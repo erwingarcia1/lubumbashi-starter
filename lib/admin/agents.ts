@@ -14,6 +14,13 @@ import { AdminError } from "./errors";
 
 export const OUT_OF_ZONE_M = 2000;
 
+/** Field activity of the current business day (D38). */
+export interface AgentTracking {
+  lastSeenAt: Date | null;
+  distanceM: number;
+  acts: number;
+}
+
 export interface AgentRow {
   id: string;
   matricule: string;
@@ -28,10 +35,11 @@ export interface AgentRow {
   outOfZone: number;
   lastSeenAt: Date | null;
   status: "active" | "suspended";
-  /** Field activity of the current business day (D38): last signal, metres walked, acts. */
-  todayLastSeenAt: Date | null;
-  todayDistanceM: number;
-  todayActs: number;
+  /**
+   * Last signal, metres walked and acts of the current business day: present only when the
+   * caller asked for it with `withTracking`, i.e. for a role that canViewTracking (D38).
+   */
+  today?: AgentTracking;
   devices: Array<{
     id: string;
     code: string;
@@ -48,7 +56,11 @@ export interface AgentRow {
  * fail) and registrations far from the zone (invented households, measured against the
  * centroid of the zone's own registrations).
  */
-export async function agentsTable(db: Db, now = new Date()): Promise<AgentRow[]> {
+export async function agentsTable(
+  db: Db,
+  now = new Date(),
+  { withTracking = false }: { withTracking?: boolean } = {},
+): Promise<AgentRow[]> {
   const rows = (
     await db.execute<{
       id: string;
@@ -84,9 +96,10 @@ export async function agentsTable(db: Db, now = new Date()): Promise<AgentRow[]>
       order by a.matricule`)
   ).rows;
   const deviceRows = await db.select().from(devices);
-  const trails = await trailsForDay(db, businessDate(now));
+  // The trail is read only for a caller allowed to show it (D38: canViewTracking).
+  const trails = withTracking ? await trailsForDay(db, businessDate(now)) : null;
   return rows.map((r) => {
-    const today = activitySummary(trails.get(r.id) ?? [], null);
+    const today = trails ? activitySummary(trails.get(r.id) ?? [], null) : null;
     return {
       id: r.id,
       matricule: r.matricule,
@@ -102,9 +115,15 @@ export async function agentsTable(db: Db, now = new Date()): Promise<AgentRow[]>
       outOfZone: Number(r.out_of_zone),
       lastSeenAt: r.last_seen ? new Date(r.last_seen) : null,
       status: r.status,
-      todayLastSeenAt: today.lastAt,
-      todayDistanceM: today.distanceM,
-      todayActs: today.registrations + today.collections,
+      ...(today
+        ? {
+            today: {
+              lastSeenAt: today.lastAt,
+              distanceM: today.distanceM,
+              acts: today.registrations + today.collections,
+            },
+          }
+        : {}),
       devices: deviceRows
         .filter((d) => d.agentId === r.id)
         .map((d) => ({

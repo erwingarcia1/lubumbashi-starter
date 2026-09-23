@@ -3,17 +3,21 @@
 import { useEffect, useRef } from "react";
 
 import { getAgentDb } from "@/lib/offline/db";
-import { flushPings, PING_INTERVAL_MS, queuePing } from "@/lib/tracking/ping-queue";
-
-const FIX_TIMEOUT_MS = 20_000;
+import {
+  flushPings,
+  PING_INTERVAL_MS,
+  POSITION_FIX_TIMEOUT_MS,
+  queuePing,
+} from "@/lib/tracking/ping-queue";
 
 /**
  * Shares the device position while the agent is logged in and the app is visible: a fix at
  * once, then every 3 minutes, queued in IndexedDB (`pings`, never the outbox: invariant 3) and
  * flushed when online. Mounted once in the agent shell, which only renders after requireAgent,
- * so nothing runs when the agent is logged out (D38).
+ * so nothing runs when the agent is logged out (D38). Every ping is stamped with the logged-in
+ * matricule: on a shared phone a colleague's leftover queue is never sent under this session.
  */
-export function PositionReporter() {
+export function PositionReporter({ matricule }: { matricule: string }) {
   const busy = useRef(false);
   const lastFixAt = useRef(0);
   const loggedOut = useRef(false);
@@ -25,7 +29,7 @@ export function PositionReporter() {
     async function flush() {
       if (!navigator.onLine || loggedOut.current) return;
       try {
-        const r = await flushPings(db);
+        const r = await flushPings(db, matricule);
         if (r.unauthenticated) loggedOut.current = true;
       } catch {
         /* next tick retries */
@@ -39,13 +43,14 @@ export function PositionReporter() {
       try {
         const fix = await new Promise<GeolocationPosition | null>((resolve) =>
           navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), {
-            timeout: FIX_TIMEOUT_MS,
+            timeout: POSITION_FIX_TIMEOUT_MS,
             maximumAge: 60_000,
           }),
         );
         lastFixAt.current = Date.now();
         if (fix) {
           await queuePing(db, {
+            matricule,
             recordedAt: new Date(fix.timestamp || Date.now()).toISOString(),
             lng: fix.coords.longitude,
             lat: fix.coords.latitude,
@@ -76,7 +81,7 @@ export function PositionReporter() {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("online", onOnline);
     };
-  }, []);
+  }, [matricule]);
 
   return null;
 }

@@ -116,6 +116,8 @@ export const fr = {
       reference: "Réf.",
       backToCurrent: "Revenir au mois en cours",
       reversalsNote: "Une annulation de paiement est déduite le mois où elle survient.",
+      attributionNote:
+        "Chaque acte compte le mois où il parvient à la plateforme : un encaissement le jour de sa confirmation, un recensement le jour de sa synchronisation.",
     },
     tracking: {
       errors: {
@@ -786,10 +788,11 @@ export const fr = {
       approvedOn: "Approuvé le",
       paidOn: "Payé le",
       totalRow: "Total",
-      note: "Encaissements confirmés initiés par l’agent, au taux en vigueur à la date de l’encaissement ; une annulation est déduite le mois où elle survient ; prime fixe par ménage recensé. Décision D36 en attente.",
+      note: "Encaissements confirmés initiés par l’agent, comptés le mois de leur confirmation au taux en vigueur ce jour-là ; une annulation est déduite le mois où elle survient ; prime fixe par ménage recensé, comptée le mois où la fiche parvient à la plateforme (un recensement hors ligne synchronisé après la clôture compte le mois suivant). Décision D36 en attente.",
       rules: {
         title: "Barème des commissions",
-        hint: "Toute modification crée une nouvelle version à une date future. Les relevés déjà approuvés ne changent pas.",
+        hint: "Toute modification crée une nouvelle version à une date future, postérieure à la dernière ; la version précédente prend fin ce jour-là. Les relevés déjà approuvés ne changent pas.",
+        states: { active: "Active", upcoming: "À venir", superseded: "Remplacée" },
         columns: {
           rule: "Règle",
           basis: "Base",

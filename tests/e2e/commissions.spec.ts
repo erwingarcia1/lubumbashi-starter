@@ -116,3 +116,87 @@ test("Finances recomputes the drafts, approves AG-KAM-007's statement and marks 
     "Payé",
   );
 });
+
+/** ISO day `n` days after an ISO day. */
+const plusDays = (iso: string, n: number) => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+/** dd/MM/yyyy, as `formatDateFr` prints an ISO day. */
+const frDate = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+
+test("the Administrateur adds a scale version: one version stays Active, the new one is À venir and ends the previous one", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await loginAdmin(page, "admin@lubumbashi.cd");
+  await page.goto("/admin/commissions?mois=2026-09");
+  const scale = page.getByRole("table", { name: "Barème des commissions" });
+  await expect(scale).toBeVisible();
+  const chain = scale.locator('tbody tr[data-code="collection_percent"]');
+  const active = scale.locator('tbody tr[data-code="collection_percent"][data-state="active"]');
+  expect(await chain.count()).toBeGreaterThan(0);
+  // Whatever earlier runs left, exactly one version of each rule is Active today.
+  await expect(active).toHaveCount(1);
+  await expect(scale.locator('tbody tr[data-state="active"]')).toHaveCount(2);
+  await expect(scale.getByText("Active", { exact: true })).toHaveCount(2);
+
+  // A new version must start after the latest one (and after today); the demo's 5 % must stay
+  // in force, so the test dates it at least ten years out. Re-runnable: dates only grow, and
+  // the two-day step leaves a gap before the new version for the refusal check below.
+  const froms = await chain.evaluateAll((rows) =>
+    rows.map((r) => r.getAttribute("data-effective-from") ?? ""),
+  );
+  const latest = froms.sort().at(-1)!;
+  const today = new Date().toISOString().slice(0, 10);
+  const floor = plusDays(today, 3650);
+  const day = plusDays(latest > floor ? latest : floor, 2);
+  const previousRow = scale.locator(
+    `tbody tr[data-code="collection_percent"][data-effective-from="${latest}"]`,
+  );
+  await expect(previousRow).toHaveCount(1);
+  await expect(previousRow.locator("td").nth(4)).toHaveText("—");
+
+  const form = page
+    .locator("form")
+    .filter({ has: page.getByRole("button", { name: "Enregistrer la version" }) });
+  const submit = async (rate: string, from: string) => {
+    await form.getByLabel("Base").selectOption("collection_percent");
+    await form.getByLabel("Taux (%)").fill(rate);
+    await form.getByLabel("En vigueur le").fill(from);
+    const before = page.url();
+    await form.getByRole("button", { name: "Enregistrer la version" }).click();
+    await page.waitForURL((u) => u.toString() !== before, { timeout: 60_000 });
+    await page.waitForLoadState("networkidle");
+  };
+  await submit("5.5", day);
+  await expect(page.getByText("Nouvelle version du barème enregistrée.")).toBeVisible();
+
+  const created = scale.locator(
+    `tbody tr[data-code="collection_percent"][data-effective-from="${day}"]`,
+  );
+  await expect(created).toHaveCount(1);
+  await expect(created).toHaveAttribute("data-state", "upcoming");
+  await expect(created).toContainText("À venir");
+  await expect(created).toContainText("5,5 %");
+  await expect(created.locator("td").nth(4)).toHaveText("—");
+  // The previous version now ends the day the new one starts, and reads as before until then.
+  await expect(previousRow.locator("td").nth(4)).toHaveText(frDate(day));
+  await expect(previousRow).not.toContainText("Remplacée");
+  // Still one Active version per rule, and the seeded 5 % is the one in force.
+  await expect(active).toHaveCount(1);
+  await expect(active).toContainText("5 %");
+  await expect(scale.locator('tbody tr[data-state="active"]')).toHaveCount(2);
+  await expect(scale.getByText("Active", { exact: true })).toHaveCount(2);
+
+  // A version dated on or before the latest one (a day nothing is dated yet) is refused and
+  // nothing is written.
+  await submit("6", plusDays(day, -1));
+  await expect(page).toHaveURL(/error=invalid_input/);
+  await expect(page.getByText("Vérifiez les champs saisis.")).toBeVisible();
+  await expect(scale.locator(`tbody tr[data-effective-from="${plusDays(day, -1)}"]`)).toHaveCount(
+    0,
+  );
+  await expect(active).toHaveCount(1);
+});

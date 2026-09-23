@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { computeLines, emptyTotals, totalsOf, type LineDraft } from "@/lib/commissions/compute";
 import { formatRateBp, formatSignedFC } from "@/lib/commissions/format";
 import { isPeriod, periodOf, periodRange, previousPeriod } from "@/lib/commissions/period";
-import { commissionAmount, ruleFor, type RuleLike } from "@/lib/commissions/rules";
+import {
+  commissionAmount,
+  ruleEndOf,
+  ruleFor,
+  ruleState,
+  type RuleLike,
+} from "@/lib/commissions/rules";
 import { canEditCommissionRules, canManageCommissions } from "@/lib/identity/roles";
 
 const rule = (
@@ -55,6 +61,59 @@ describe("ruleFor: the latest rule effective on the act's business day (D36, inv
     expect(ruleFor(withTax, "collection_percent", "2026-09-15")?.id).toBe("pct-2026");
     const reversed = [...withTax].reverse();
     expect(ruleFor(reversed, "collection_percent", "2026-09-15", "tax-a")?.id).toBe("pct-tax");
+  });
+});
+
+describe("ruleState / ruleEndOf: what the scale table shows for each version", () => {
+  const byId = (id: string) => rules.find((r) => r.id === id)!;
+
+  it("one version per chain is active; a later one is upcoming; an ended or older one is replaced", () => {
+    const today = "2026-09-23";
+    expect(ruleState(rules, byId("pct-2026"), today)).toBe("active");
+    expect(ruleState(rules, byId("pct-2027"), today)).toBe("upcoming");
+    expect(ruleState(rules, byId("fix-2026"), today)).toBe("active");
+    expect(ruleState(rules, byId("fix-ended"), today)).toBe("superseded");
+    expect(rules.filter((r) => ruleState(rules, r, today) === "active").map((r) => r.id)).toEqual([
+      "pct-2026",
+      "fix-2026",
+    ]);
+    // Once the 2027 version starts, the 2026 one reads as replaced even though it never ended.
+    expect(ruleState(rules, byId("pct-2026"), "2027-01-01")).toBe("superseded");
+    expect(ruleState(rules, byId("pct-2027"), "2027-01-01")).toBe("active");
+    // A tax-specific version is active alongside the global one, each for its own chain.
+    const withTax = [
+      ...rules,
+      rule("pct-tax", "collection_percent", "2026-01-01", { rateBp: 800, taxRuleId: "tax-a" }),
+    ];
+    expect(ruleState(withTax, byId("pct-2026"), today)).toBe("active");
+    expect(
+      ruleState(
+        withTax,
+        withTax.find((r) => r.id === "pct-tax")!,
+        today,
+      ),
+    ).toBe("active");
+  });
+
+  it("ends on effectiveTo, else when the next version of the same chain starts, else never", () => {
+    expect(ruleEndOf(rules, byId("fix-ended"))).toBe("2026-01-01");
+    expect(ruleEndOf(rules, byId("pct-2026"))).toBe("2027-01-01");
+    expect(ruleEndOf(rules, byId("pct-2027"))).toBeNull();
+    expect(ruleEndOf(rules, byId("fix-2026"))).toBeNull();
+    // The nearest later version wins, and another chain (basis or tax) does not count.
+    const more = [
+      ...rules,
+      rule("pct-2028", "collection_percent", "2028-01-01"),
+      rule("pct-tax", "collection_percent", "2026-06-01", { taxRuleId: "tax-a" }),
+    ];
+    expect(ruleEndOf(more, byId("pct-2026"))).toBe("2027-01-01");
+    expect(ruleEndOf(more, byId("pct-2027"))).toBe("2028-01-01");
+    expect(
+      ruleEndOf(
+        more,
+        more.find((r) => r.id === "pct-tax")!,
+      ),
+    ).toBeNull();
   });
 });
 
@@ -190,6 +249,23 @@ describe("computeLines: acts → signed lines and totals", () => {
       registrations: [],
     });
     expect(recomputed.lines[0]).toMatchObject({ ruleId: "pct-2026", rateBp: 500, amountFc: -500 });
+  });
+
+  it("pays each act at the rule of the day it reached the platform, whatever the device's day", () => {
+    // The act's businessDate is the server-side event (confirmation, sync): a collection
+    // initiated on 31 December but confirmed on 1 January is January's, at January's rate.
+    const r = computeLines({
+      rules,
+      collections: [
+        { paymentId: "p1", businessDate: "2027-01-01", amountFc: 10000, taxRuleId: null },
+      ],
+      reversals: [],
+      registrations: [{ taxpayerId: "t1", businessDate: "2027-01-01" }],
+    });
+    expect(r.lines.map((l) => [l.kind, l.businessDate, l.ruleId, l.amountFc])).toEqual([
+      ["collection", "2027-01-01", "pct-2027", 600],
+      ["registration", "2027-01-01", "fix-2026", 500],
+    ]);
   });
 
   it("earns nothing when no rule is effective on the day", () => {

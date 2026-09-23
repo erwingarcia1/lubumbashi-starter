@@ -5,6 +5,7 @@ import {
   outstandingOf,
   penaltyAsOf,
   toInvoiceSnapshot,
+  withFirstIssue,
   type InvoiceRow,
   type InvoiceSnapshot,
 } from "@/lib/invoices/snapshot";
@@ -110,6 +111,27 @@ describe("note de perception: snapshot maths (D35)", () => {
     expect(late.penaltyFc).toBe(500);
     expect(late.outstandingFc).toBe(5500);
     expect(() => toInvoiceSnapshot(row({ invoiceNo: null }), NOW)).toThrow(/avis number/);
+  });
+
+  it("withFirstIssue: the snapshot as it prints once stamped now, by an admin or by the system", () => {
+    const s = toInvoiceSnapshot(row(), NOW);
+    const at = new Date("2026-09-23T08:15:00Z");
+    const byAdmin = withFirstIssue(s, "Ngoy K.", at);
+    expect(byAdmin).toMatchObject({
+      issuedAt: at.toISOString(),
+      issuedBy: "Ngoy K.",
+      issuedBySystem: false,
+    });
+    expect(withFirstIssue(s, null, at)).toMatchObject({
+      issuedAt: at.toISOString(),
+      issuedBy: null,
+      issuedBySystem: true,
+    });
+    // Pure: the input is untouched and everything else is carried over.
+    expect(s.issuedAt).toBeNull();
+    expect(byAdmin.invoiceNo).toBe(s.invoiceNo);
+    expect(byAdmin.outstandingFc).toBe(s.outstandingFc);
+    expect(byAdmin.printedAt).toBe(s.printedAt);
   });
 });
 

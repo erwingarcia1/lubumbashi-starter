@@ -143,7 +143,15 @@ export function ActivityMap({
           />
         ) : null}
         {points.map((p) => (
-          <Marker key={p.n} position={[p.lat, p.lng]} icon={numberedIcon(p.n, p.kind)}>
+          // Pings are not focusable (a morning has dozens); acts are, and read as more than a
+          // number for the screen reader.
+          <Marker
+            key={p.n}
+            position={[p.lat, p.lng]}
+            icon={numberedIcon(p.n, p.kind)}
+            keyboard={p.kind !== "ping"}
+            title={p.kind !== "ping" ? `${p.n}. ${T.kinds[p.kind]} · ${p.time}` : undefined}
+          >
             <Popup closeButton={false}>
               <b>
                 {p.n}. {T.kinds[p.kind]}

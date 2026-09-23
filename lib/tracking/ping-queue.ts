@@ -4,7 +4,10 @@ import type { AgentDb, Ping } from "@/lib/offline/db";
  * The phone's queue of position pings, separate from the offline outbox by design: the outbox
  * holds census records and contact updates only (invariant 3), and a ping is neither.
  */
+// DECISION-PENDING: D38 — ping interval.
 export const PING_INTERVAL_MS = 3 * 60_000;
+/** One wait for a GPS fix, shared by the reporter and the collection screen (a fix, not a guess). */
+export const POSITION_FIX_TIMEOUT_MS = 20_000;
 export const PING_BATCH = 50;
 /** The server ignores older fixes anyway (lib/tracking/ingest.ts). */
 export const PING_MAX_AGE_MS = 24 * 3_600_000;
@@ -40,18 +43,27 @@ export interface FlushResult {
 }
 
 /**
- * Sends queued pings oldest-first, 50 per request. A refused batch (4xx other than 401/429) is
- * dropped: it is malformed and would never pass. A network failure, a 5xx or a 429 keeps it.
+ * Sends the queued pings of `matricule` (the agent logged in on this phone) oldest-first, 50 per
+ * request. Pings queued under another matricule (a colleague who used the phone before) are
+ * dropped, never sent under this session. A refused batch (4xx other than 401/429) is dropped:
+ * it is malformed and would never pass. A network failure, a 5xx or a 429 keeps it.
  */
 export async function flushPings(
   db: AgentDb,
+  matricule: string,
   fetchImpl: typeof fetch = fetch,
   now = new Date(),
 ): Promise<FlushResult> {
   await prunePings(db, now);
+  const foreign = await db.pings.filter((p) => p.matricule !== matricule).primaryKeys();
+  if (foreign.length > 0) await db.pings.bulkDelete(foreign);
   const result: FlushResult = { sent: 0, remaining: 0, unauthenticated: false };
   for (;;) {
-    const batch = await db.pings.orderBy("recordedAt").limit(PING_BATCH).toArray();
+    const batch = await db.pings
+      .orderBy("recordedAt")
+      .filter((p) => p.matricule === matricule)
+      .limit(PING_BATCH)
+      .toArray();
     if (batch.length === 0) break;
     let res: Response;
     try {

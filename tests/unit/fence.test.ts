@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { ACCURACY_TOLERANCE_MAX_M, checkInside, haversineM, type Fence } from "@/lib/geo/fence";
 import { positionRequiredForCollection } from "@/lib/geo/policy";
+import { ADMIN_ROLES, canViewTracking } from "@/lib/identity/roles";
 import { AgentDb } from "@/lib/offline/db";
 import { activitySummary, type TrailPoint } from "@/lib/tracking/activity";
 import { formatKm } from "@/lib/tracking/format";
@@ -79,6 +80,14 @@ describe("collection without a position (D37 placeholder)", () => {
   });
 });
 
+describe("who may read the trail (D38 placeholder)", () => {
+  it("admits Superviseur, Administrateur and Maire only: neither Finances nor Auditeur", () => {
+    expect(ADMIN_ROLES.filter(canViewTracking)).toEqual(["administrateur", "maire", "superviseur"]);
+    expect(canViewTracking("finances")).toBe(false);
+    expect(canViewTracking("auditeur")).toBe(false);
+  });
+});
+
 describe("position ingest window (D38: 06:00–20:00 Africa/Lubumbashi, 24 h)", () => {
   const cat = (day: string, hhmm: string) => new Date(`${day}T${hhmm}:00+02:00`);
 
@@ -110,7 +119,16 @@ describe("position ingest window (D38: 06:00–20:00 Africa/Lubumbashi, 24 h)", 
     expect(positionsInput.safeParse(Array.from({ length: 51 }, () => fix)).success).toBe(false);
     expect(positionsInput.safeParse([{ ...fix, lat: 95 }]).success).toBe(false);
     expect(positionsInput.safeParse([{ ...fix, recordedAt: "hier" }]).success).toBe(false);
-    expect(positionsInput.safeParse([{ ...fix, source: "manual" }]).success).toBe(false);
+  });
+
+  it("refuses a body that claims a source: the phone sends positions, never acts", () => {
+    const fix = { recordedAt: "2026-09-23T09:00:00Z", lng: 27.49, lat: -11.66 };
+    for (const source of ["census", "payment", "ping", "manual"]) {
+      expect(positionsInput.safeParse([{ ...fix, source }]).success, source).toBe(false);
+    }
+    // Strict object: any extra field is refused, not silently dropped.
+    expect(positionsInput.safeParse([{ ...fix, deviceId: "DEV-3F9A" }]).success).toBe(false);
+    expect(positionsInput.safeParse([fix]).success).toBe(true);
   });
 });
 
@@ -208,7 +226,9 @@ describe("ping queue (separate Dexie table, never the outbox)", () => {
       handler(String(input), init)) as typeof fetch;
   const json = (status: number, body: unknown) =>
     new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-  const ping = (minutesAgo: number, now: Date) => ({
+  const ME = "AG-KAM-007";
+  const ping = (minutesAgo: number, now: Date, matricule = ME) => ({
+    matricule,
     recordedAt: new Date(now.getTime() - minutesAgo * 60_000).toISOString(),
     lng: 27.4935,
     lat: -11.6645,
@@ -223,6 +243,7 @@ describe("ping queue (separate Dexie table, never the outbox)", () => {
     const seen: unknown[] = [];
     const r = await flushPings(
       db,
+      ME,
       fetchWith((url, init) => {
         expect(url).toBe("/api/v1/agent/positions");
         seen.push(JSON.parse(String(init?.body)));
@@ -238,6 +259,8 @@ describe("ping queue (separate Dexie table, never the outbox)", () => {
       ping(3, now).recordedAt,
     ]);
     expect(body[0]?.accuracyM).toBe(9);
+    // The body carries no identity and no source: the session says who, the server says "ping".
+    expect(Object.keys(body[0]!).sort()).toEqual(["accuracyM", "lat", "lng", "recordedAt"]);
     expect(await db.pings.count()).toBe(0);
     // The outbox is untouched: pings are not records (invariant 3).
     expect(await db.outbox.count()).toBe(0);
@@ -255,6 +278,7 @@ describe("ping queue (separate Dexie table, never the outbox)", () => {
       await queuePing(db, ping(1, now));
       const r = await flushPings(
         db,
+        ME,
         fetchWith(() => json(status, { ok: false })),
         now,
       );
@@ -264,12 +288,54 @@ describe("ping queue (separate Dexie table, never the outbox)", () => {
     await queuePing(db, ping(1, now));
     const r = await flushPings(
       db,
+      ME,
       fetchWith(() => {
         throw new TypeError("offline");
       }),
       now,
     );
     expect(r).toEqual({ sent: 0, remaining: 1, unauthenticated: false });
+  });
+
+  it("on a shared phone, pings queued for AG-KAM-007 are never sent for AG-KAM-011", async () => {
+    const now = new Date("2026-09-23T10:00:00+02:00");
+    // 007 worked this morning, went offline, and handed the phone to 011.
+    const db = new AgentDb(`pings-${++n}`);
+    await queuePing(db, ping(6, now));
+    await queuePing(db, ping(3, now));
+    let calls = 0;
+    const r = await flushPings(
+      db,
+      "AG-KAM-011",
+      fetchWith(() => {
+        calls++;
+        return json(200, { ok: true, data: { accepted: 0, ignored: 0 } });
+      }),
+      now,
+    );
+    expect(calls).toBe(0);
+    // Dropped, not kept for later: 007's session on this phone is over (cleared at sign-out anyway).
+    expect(r).toEqual({ sent: 0, remaining: 0, unauthenticated: false });
+    expect(await db.pings.count()).toBe(0);
+
+    // Mixed queue: only 011's own fix leaves, in 011's session.
+    const mixed = new AgentDb(`pings-${++n}`);
+    await queuePing(mixed, ping(6, now));
+    await queuePing(mixed, ping(3, now, "AG-KAM-011"));
+    await queuePing(mixed, ping(2, now));
+    const seen: Array<Array<{ recordedAt: string }>> = [];
+    const r2 = await flushPings(
+      mixed,
+      "AG-KAM-011",
+      fetchWith((_url, init) => {
+        seen.push(JSON.parse(String(init?.body)));
+        return json(200, { ok: true, data: { accepted: 1, ignored: 0 } });
+      }),
+      now,
+    );
+    expect(r2).toEqual({ sent: 1, remaining: 0, unauthenticated: false });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.map((p) => p.recordedAt)).toEqual([ping(3, now).recordedAt]);
   });
 
   it("prunes fixes older than 24 h and caps the queue", async () => {

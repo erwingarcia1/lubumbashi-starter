@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import type { Db, Tx } from "@/lib/db/client";
 import {
@@ -38,9 +38,18 @@ export interface StatementTotals {
   totalFc: number;
 }
 
-/** A confirmed collection initiated by the agent (its business day is the payment's). */
+/**
+ * Every act carries one business day: the day it reached the platform (`businessDate`). That day
+ * decides the month the act is commissioned in and the rule version it is paid under. Statements
+ * are frozen once approved, so an act attributed to a day the device chose (a census captured
+ * offline and synced weeks later, a payment initiated at 23:59 and confirmed after midnight)
+ * could land in a month that is already closed and never be paid; the server-side event cannot.
+ */
+
+/** A confirmed collection initiated by the agent. */
 export interface CollectionAct {
   paymentId: string;
+  /** Business day the provider confirmed the payment (`payments.confirmed_at`). */
   businessDate: string;
   amountFc: number;
   /** The single tax the payment served, when there is exactly one; null otherwise. */
@@ -50,9 +59,9 @@ export interface CollectionAct {
 /** A reversal: deducted in the month it happens, mirroring what the collection earned. */
 export interface ReversalAct {
   paymentId: string;
-  /** Business day of the reversal. */
+  /** Business day of the reversal (`payments.reversed_at`). */
   businessDate: string;
-  /** Business day of the original collection. */
+  /** Business day the original collection was confirmed (its own `businessDate`). */
   collectedOn: string;
   amountFc: number;
   taxRuleId: string | null;
@@ -62,6 +71,7 @@ export interface ReversalAct {
 
 export interface RegistrationAct {
   taxpayerId: string;
+  /** Business day the census record was written on the server (`taxpayers.created_at`). */
   businessDate: string;
 }
 
@@ -151,7 +161,8 @@ export function computeLines(input: ComputeInput): { lines: LineDraft[]; totals:
       amountFc: -amountFc,
     });
   }
-  // DECISION-PENDING: D36 — every household registered by the agent earns the fixed amount.
+  // DECISION-PENDING: D36 — every household registered by the agent earns the fixed amount, in
+  // the month the record reached the platform (not the month the device captured it).
   for (const g of input.registrations) {
     const rule = ruleFor(input.rules, "registration_fixed", g.businessDate, null);
     lines.push({
@@ -180,9 +191,14 @@ export interface ComputedStatement {
 const singleTax = (ids: string[] | null) => (ids && ids.length === 1 && ids[0] ? ids[0] : null);
 
 /**
- * One agent, one month, straight from the ledger (no writes): confirmed collections the agent
- * initiated (`payments.business_date`), reversals dated by `reversed_at`, households registered
- * by the agent (`taxpayers.registered_at`), each at the rule effective on its business day.
+ * One agent, one month, straight from the ledger (no writes). Acts are attributed to the month
+ * of the server-side event that made them commissionable, never to a day the device chose:
+ * collections the agent initiated by the business day of `payments.confirmed_at`, reversals by
+ * `payments.reversed_at`, households registered by the agent by `taxpayers.created_at` (the
+ * sync, not the offline capture in `registered_at`). Each act is paid at the rule effective on
+ * that day. A payment initiated on 31 August and confirmed on 1 September is September's; a
+ * census captured on 30 August and synced on 3 September is September's.
+ * DECISION-PENDING: D36 — the attribution month is the month the act reached the platform.
  */
 export async function computeStatement(
   db: Db | Tx,
@@ -198,10 +214,11 @@ export async function computeStatement(
     select distinct o.tax_rule_id::text from app.payment_allocations pa
     join app.obligations o on o.id = pa.obligation_id
     where pa.payment_id = app.payments.id)`;
+  const confirmedOn = sql<string>`util.business_date(${payments.confirmedAt})::text`;
   const collected = await db
     .select({
       id: payments.id,
-      businessDate: payments.businessDate,
+      businessDate: confirmedOn,
       amountFc: payments.amountFc,
       taxRuleIds: taxIdsOf,
     })
@@ -211,15 +228,14 @@ export async function computeStatement(
         eq(payments.initiatedByAgentId, agentId),
         isNotNull(payments.confirmedAt),
         inArray(payments.status, ["confirmed", "reversed"]),
-        gte(payments.businessDate, start),
-        lte(payments.businessDate, end),
+        sql`util.business_date(${payments.confirmedAt}) between ${start}::date and ${end}::date`,
       ),
     );
   const reversedOn = sql<string>`util.business_date(${payments.reversedAt})::text`;
   const reversed = await db
     .select({
       id: payments.id,
-      collectedOn: payments.businessDate,
+      collectedOn: confirmedOn,
       reversedOn,
       amountFc: payments.amountFc,
       taxRuleIds: taxIdsOf,
@@ -229,6 +245,7 @@ export async function computeStatement(
       and(
         eq(payments.initiatedByAgentId, agentId),
         eq(payments.status, "reversed"),
+        isNotNull(payments.confirmedAt),
         isNotNull(payments.reversedAt),
         sql`util.business_date(${payments.reversedAt}) between ${start}::date and ${end}::date`,
       ),
@@ -260,21 +277,22 @@ export async function computeStatement(
     priorLines
       .filter((l) => l.paymentId === paymentId)
       .sort((a, b) => rank[a.status] - rank[b.status])[0] ?? null;
-  const registeredOn = sql<string>`util.business_date(${taxpayers.registeredAt})::text`;
+  // `registered_at` is the device's capture time (offline census); `created_at` the sync.
+  const createdOn = sql<string>`util.business_date(${taxpayers.createdAt})::text`;
   const registered = await db
-    .select({ id: taxpayers.id, businessDate: registeredOn })
+    .select({ id: taxpayers.id, businessDate: createdOn })
     .from(taxpayers)
     .where(
       and(
         eq(taxpayers.registeredByAgentId, agentId),
-        sql`util.business_date(${taxpayers.registeredAt}) between ${start}::date and ${end}::date`,
+        sql`util.business_date(${taxpayers.createdAt}) between ${start}::date and ${end}::date`,
       ),
     );
   const { lines, totals } = computeLines({
     rules,
     collections: collected.map((p) => ({
       paymentId: p.id,
-      businessDate: p.businessDate!,
+      businessDate: p.businessDate,
       amountFc: p.amountFc,
       taxRuleId: singleTax(p.taxRuleIds),
     })),
@@ -283,7 +301,7 @@ export async function computeStatement(
       return {
         paymentId: p.id,
         businessDate: p.reversedOn,
-        collectedOn: p.collectedOn!,
+        collectedOn: p.collectedOn,
         amountFc: p.amountFc,
         taxRuleId: singleTax(p.taxRuleIds),
         priorLine: prior

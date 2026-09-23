@@ -8,7 +8,7 @@ import { purgePositions } from "@/lib/jobs/positions";
 import { initiatePayment } from "@/lib/payments/service";
 import { businessDate } from "@/lib/time";
 import { activitySummary, lastPositionsForDay, trailFor } from "@/lib/tracking/activity";
-import { ingestPositions } from "@/lib/tracking/ingest";
+import { ingestPositions, type PositionInput } from "@/lib/tracking/ingest";
 import { runSeed } from "@/scripts/seed";
 
 import { appDb } from "./db";
@@ -59,6 +59,33 @@ describe("field tracking and geofence (D37, D38)", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ deviceId: agent.deviceId, accuracyM: 7, source: "ping" });
     expect(rows[0]!.businessDate).toBe(today);
+    await db.delete(agentPositions).where(eq(agentPositions.id, rows[0]!.id));
+  });
+
+  it("ingest stores nothing but pings, whatever the phone claims", async () => {
+    const db = appDb();
+    const today = businessDate(new Date());
+    const now = new Date(`${today}T12:00:00+02:00`);
+    const at = new Date(`${today}T11:31:07+02:00`);
+    // The API refuses this body (strict schema); the writer is guarded on its own as well.
+    const smuggled = {
+      recordedAt: at.toISOString(),
+      lng: 27.4933,
+      lat: -11.6663,
+      source: "census",
+    } as unknown as PositionInput;
+    expect(await ingestPositions(db, agent, [smuggled], now)).toEqual({ accepted: 1, ignored: 0 });
+    const rows = await db
+      .select()
+      .from(agentPositions)
+      .where(and(eq(agentPositions.agentId, agent.agentId), eq(agentPositions.recordedAt, at)));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.source).toBe("ping");
+    // So the trail counts it as a position, never as a registration.
+    const point = (await trailFor(db, agent.agentId, today)).find(
+      (p) => p.origin === "position" && p.at.getTime() === at.getTime(),
+    );
+    expect(point?.kind).toBe("ping");
     await db.delete(agentPositions).where(eq(agentPositions.id, rows[0]!.id));
   });
 

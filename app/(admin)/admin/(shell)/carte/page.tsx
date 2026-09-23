@@ -4,6 +4,8 @@ import { mapPoints } from "@/lib/admin/map";
 import { mapView } from "@/lib/admin/map-center";
 import { getDb } from "@/lib/db/client";
 import { agents, zones } from "@/lib/db/schema";
+import { canViewTracking } from "@/lib/identity/roles";
+import { requireAdmin } from "@/lib/identity/session";
 import { t } from "@/lib/i18n";
 import { businessDate, requestNow } from "@/lib/time";
 import { lastPositionsForDay } from "@/lib/tracking/activity";
@@ -18,8 +20,10 @@ export default async function MapPage({
 }: {
   searchParams: Promise<{ commune?: string; statut?: string; agent?: string; agents?: string }>;
 }) {
-  const sp = await searchParams;
+  const [sp, session] = await Promise.all([searchParams, requireAdmin()]);
   const db = getDb();
+  // The agents layer (D38) exists only for the roles allowed to see where an agent is.
+  const canTrack = canViewTracking(session.role);
   const pill =
     sp.statut === "paid" || sp.statut === "due" || sp.statut === "late" ? sp.statut : undefined;
   const [communes, agentRows] = await Promise.all([
@@ -40,7 +44,7 @@ export default async function MapPage({
     pill,
   });
   // Agents layer (D38): each agent's last position of the current business day.
-  const showAgents = sp.agents === "1";
+  const showAgents = canTrack && sp.agents === "1";
   const agentMarkers = showAgents
     ? (await lastPositionsForDay(db, businessDate(requestNow()))).map((a) => ({
         matricule: a.matricule,
@@ -110,15 +114,17 @@ export default async function MapPage({
               </option>
             ))}
           </select>
-          <select
-            name="agents"
-            defaultValue={showAgents ? "1" : ""}
-            aria-label={T.layer.label}
-            className={sel}
-          >
-            <option value="">{T.layer.off}</option>
-            <option value="1">{T.layer.on}</option>
-          </select>
+          {canTrack ? (
+            <select
+              name="agents"
+              defaultValue={showAgents ? "1" : ""}
+              aria-label={T.layer.label}
+              className={sel}
+            >
+              <option value="">{T.layer.off}</option>
+              <option value="1">{T.layer.on}</option>
+            </select>
+          ) : null}
           <button
             type="submit"
             className="h-11 w-full rounded-md border border-[#D5CFCF] bg-white px-3 font-semibold md:h-8 md:w-auto"

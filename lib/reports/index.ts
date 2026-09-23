@@ -3,9 +3,11 @@ import { z } from "zod";
 import { agentsTable } from "@/lib/admin/agents";
 import { auditCsv, auditJournal, type AuditFilters } from "@/lib/admin/audit";
 import { collectionsReport } from "@/lib/admin/collections";
+import type { RequestContext } from "@/lib/admin/context";
 import type { Db } from "@/lib/db/client";
 import { formatDateFr, formatDateTimeFr, formatFC, formatMonthFr } from "@/lib/i18n/format";
 import { t } from "@/lib/i18n";
+import type { AdminSession } from "@/lib/identity/session";
 import { availableChannels } from "@/lib/payments/registry";
 import { closeHistory } from "@/lib/reconciliation/actions";
 import { reconciliationDay } from "@/lib/reconciliation/view";
@@ -15,7 +17,6 @@ import { sql } from "drizzle-orm";
 
 import { listStatements } from "@/lib/commissions/statements";
 import { issueInvoiceBatch } from "@/lib/invoices/issue";
-import { renderInvoiceBatchPdf } from "@/lib/invoices/pdf";
 
 import { tablePdf, type PdfSection } from "./pdf";
 import { workbook } from "./xlsx";
@@ -100,11 +101,21 @@ function monthOf(p: ReportParams, now: Date) {
 
 const CH = (c: string) => t.status.channel[c as keyof typeof t.status.channel] ?? c;
 
+/**
+ * The Mairie user behind a report whose build is itself an action: the print run of the notes
+ * de perception issues them in that user's name (WHO, WHERE = IP, DEVICE = user agent).
+ */
+export interface ReportCaller {
+  session: AdminSession;
+  ctx?: RequestContext;
+}
+
 export async function buildReport(
   db: Db,
   code: ReportCode,
   raw: ReportParams,
   now = new Date(),
+  caller?: ReportCaller,
 ): Promise<ReportFile> {
   const p = reportParams.parse(raw);
   const def = REPORTS[code];
@@ -423,17 +434,19 @@ export async function buildReport(
     }
     case "invoices": {
       // Print run of the notes de perception (D35): one A4 page per open obligation whose period
-      // starts in the month, in taxpayer order. Finances prints the batch to serve the notes, so
-      // the run stamps every note not issued yet as issued by the system actor and journals each
-      // one (`invoice.issued`, details.batch = the month); see lib/invoices/issue.ts.
+      // starts in the month, in taxpayer order. Printing the batch IS the first issue of every
+      // note not issued yet, so the run needs the Mairie user behind it (a role that may issue a
+      // note): each stamp carries her admin id and each `invoice.issued` row her identity, IP
+      // and user agent (details.batch = the month); see lib/invoices/issue.ts.
+      if (!caller) throw new Error("report invoices: the issuing admin session is required");
       const m = monthOf(p, now);
       const month = p.month ?? businessDate(now).slice(0, 7);
-      const notes = await issueInvoiceBatch(db, m.period, month, now);
+      const run = await issueInvoiceBatch(db, m.period, month, caller.session, caller.ctx, now);
       return {
         filename: `notes-perception-${month}.pdf`,
         contentType: TYPES.pdf,
-        rows: notes.length,
-        body: await renderInvoiceBatchPdf(notes, m.label),
+        rows: run.snapshots.length,
+        body: run.pdf,
       };
     }
     case "commissions": {

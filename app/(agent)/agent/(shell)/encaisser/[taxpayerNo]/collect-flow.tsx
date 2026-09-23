@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatDateTimeFr, formatFC } from "@/lib/i18n/format";
 import { t } from "@/lib/i18n";
+import { POSITION_FIX_TIMEOUT_MS } from "@/lib/tracking/ping-queue";
 
 type Channel = "mpesa" | "airtel" | "orange" | "tpe";
 
@@ -92,13 +93,22 @@ export function CollectFlow({
     setBusy(true);
     setError(null);
     try {
-      let gps: { lng: number; lat: number } | undefined;
+      // The accuracy travels with the fix: the geofence adds it to the zone radius (D37), so a
+      // poor signal at the edge of the quartier is not refused. Same wait as the reporter.
+      let gps: { lng: number; lat: number; accuracyM?: number } | undefined;
       if ("geolocation" in navigator) {
         gps = await new Promise((resolve) =>
           navigator.geolocation.getCurrentPosition(
-            (p) => resolve({ lng: p.coords.longitude, lat: p.coords.latitude }),
+            (p) =>
+              resolve({
+                lng: p.coords.longitude,
+                lat: p.coords.latitude,
+                accuracyM: Number.isFinite(p.coords.accuracy)
+                  ? Math.round(p.coords.accuracy)
+                  : undefined,
+              }),
             () => resolve(undefined),
-            { timeout: 4000, maximumAge: 60_000 },
+            { timeout: POSITION_FIX_TIMEOUT_MS, maximumAge: 60_000 },
           ),
         );
       }

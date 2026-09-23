@@ -78,6 +78,18 @@ test("Finances issues the note de perception of the September obligation from th
   await page.goto(`/admin/audit?action=invoice.issued&object=${invoiceNo}`);
   await expect(page.getByText(invoiceNo).first()).toBeVisible();
   await expect(page.getByText("ngoy.k@lubumbashi.cd").first()).toBeVisible();
+
+  // The print run of the month is hers too: the card is enabled and the API serves the batch.
+  await page.goto("/admin/rapports");
+  await expect(
+    page.locator("form", { hasText: "Notes de perception du mois" }).getByRole("button", {
+      name: "Générer",
+    }),
+  ).toBeEnabled();
+  const batch = await page.request.get("/api/v1/admin/reports/invoices?format=pdf&month=2026-09");
+  expect(batch.status()).toBe(200);
+  expect(batch.headers()["content-type"]).toContain("application/pdf");
+  expect((await batch.body()).subarray(0, 5).toString()).toBe("%PDF-");
   await page.getByRole("button", { name: "Se déconnecter" }).click();
 
   // The Auditeur reads the issue date but has no link, and the API refuses before reading anything.
@@ -88,4 +100,13 @@ test("Finances issues the note de perception of the September obligation from th
   await expect(page.getByRole("row", { name: /sept\. 2026/ }).first()).toContainText("émise le");
   expect((await page.request.get(href)).status()).toBe(403);
   expect((await page.request.get("/api/v1/admin/invoices/AV-0000-000000/pdf")).status()).toBe(403);
+
+  // The print run issues notes too: the Auditeur's card is disabled and the API refuses it.
+  await page.goto("/admin/rapports");
+  const card = page.locator("form", { hasText: "Notes de perception du mois" });
+  await expect(card.getByRole("button", { name: "Générer" })).toBeDisabled();
+  await expect(card).toContainText("Votre rôle ne permet pas cette action.");
+  expect(
+    (await page.request.get("/api/v1/admin/reports/invoices?format=pdf&month=2026-09")).status(),
+  ).toBe(403);
 });
