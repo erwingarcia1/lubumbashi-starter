@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { agentMonthView } from "@/lib/commissions/agent-view";
@@ -141,6 +141,16 @@ describe("agent commissions (D36): compute, drafts, approval, payout, scale", ()
     admin = session(await row("admin@lubumbashi.cd"));
     superviseur = session(await row("ilunga.m@lubumbashi.cd"));
     agent = (await db.select().from(agents).where(eq(agents.matricule, "AG-KAM-007")))[0]!;
+    // Each run leaves a statement in a random far-future year on the seeded agent; clear those
+    // artefacts so the twelve-month listing checked below always contains this run's period.
+    await db
+      .delete(commissionStatements)
+      .where(
+        and(
+          eq(commissionStatements.agentId, agent.id),
+          gte(commissionStatements.period, "2100-01"),
+        ),
+      );
     device = (await db.select().from(devices).where(eq(devices.deviceCode, "DEV-3F9A")))[0]!;
     taxpayer = (
       await db.select().from(taxpayers).where(eq(taxpayers.taxpayerNo, "LUB-KAM-00000131"))

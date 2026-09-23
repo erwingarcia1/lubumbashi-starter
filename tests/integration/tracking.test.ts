@@ -194,7 +194,8 @@ describe("field tracking and geofence (D37, D38)", () => {
       .where(eq(obligations.taxpayerId, tp!.id))
       .limit(1);
     const year = 2100 + Math.floor(Math.random() * 800);
-    const [fresh] = await db
+    // A previous run may have used the same random year: reuse its obligation then.
+    let [fresh] = await db
       .insert(obligations)
       .values({
         entityId: template!.entityId,
@@ -206,7 +207,20 @@ describe("field tracking and geofence (D37, D38)", () => {
         dueDate: `${year}-03-31`,
         amountFc: 5_000,
       })
+      .onConflictDoNothing()
       .returning();
+    if (!fresh) {
+      [fresh] = await db
+        .select()
+        .from(obligations)
+        .where(
+          and(
+            eq(obligations.entityId, template!.entityId),
+            eq(obligations.taxRuleId, template!.taxRuleId),
+            eq(obligations.periodStart, `${year}-03-01`),
+          ),
+        );
+    }
     const view = await initiatePayment(
       db,
       { type: "agent", ...agent, gps: BEL_AIR },

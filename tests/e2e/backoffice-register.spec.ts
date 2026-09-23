@@ -61,6 +61,8 @@ test("the Superviseur registers a taxpayer from the dashboard and prints its not
   await expect(page.getByText(taxpayerNo).first()).toBeVisible();
   await expect(page.getByText("ilunga.m@lubumbashi.cd").first()).toBeVisible();
   await page.getByRole("button", { name: "Se déconnecter" }).click();
+  // The sign-out action must finish before another login, or its response clears the new cookie.
+  await expect(page).toHaveURL(/\/admin\/login/);
 
   // The Auditeur has no button and the page sends him to « Accès refusé ».
   await login(page, "auditeur@lubumbashi.cd");

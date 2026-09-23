@@ -104,6 +104,8 @@ test("Finances recomputes the drafts, approves AG-KAM-007's statement and marks 
   await expect(page.getByText("Seul l’Administrateur modifie le barème.")).toBeVisible();
 
   await page.getByRole("button", { name: "Se déconnecter" }).click();
+  // The sign-out action must finish before another login, or its response clears the new cookie.
+  await expect(page).toHaveURL(/\/admin\/login/);
   await loginAdmin(page, "auditeur@lubumbashi.cd");
   await page.goto("/admin/commissions?mois=2026-09");
   await expect(page.getByRole("heading", { name: /Commissions des agents/ })).toBeVisible();

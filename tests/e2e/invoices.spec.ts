@@ -95,6 +95,8 @@ test("Finances issues the note de perception of the September obligation from th
   expect(batch.headers()["content-type"]).toContain("application/pdf");
   expect((await batch.body()).subarray(0, 5).toString()).toBe("%PDF-");
   await page.getByRole("button", { name: "Se déconnecter" }).click();
+  // The sign-out action must finish before another login, or its response clears the new cookie.
+  await expect(page).toHaveURL(/\/admin\/login/);
 
   // The Auditeur reads the issue date but has no link, and the API refuses before reading anything.
   await login(page, "auditeur@lubumbashi.cd");
