@@ -19,7 +19,7 @@ const STATUS: Record<string, number> = { not_found: 404, forbidden: 403, invalid
  * `obligations.invoice_issued_at/_by` is stamped and `invoice.issued` written to the audit log
  * (WHO, IP, user agent); a render failure leaves the note unissued. Later GETs re-print the same
  * note: same number, first issue date kept, amounts as of the print date (D35). Roles that
- * cannot issue (Maire, Auditeur) get 403 before anything is read or stamped.
+ * cannot issue (Auditeur) get 403 before anything is read or stamped.
  */
 export async function GET(
   request: Request,

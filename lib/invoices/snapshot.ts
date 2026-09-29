@@ -250,3 +250,14 @@ export async function loadInvoiceSnapshotsForPeriod(
   const rows = await loadInvoiceRows(db, printRunWhere(period));
   return rows.map((r) => toInvoiceSnapshot(r, now));
 }
+
+/** The notes of an explicit set of obligations (any status), in print-run order; unknown ids are absent. */
+export async function loadInvoiceSnapshotsForObligations(
+  db: Db | Tx,
+  obligationIds: readonly string[],
+  now = new Date(),
+): Promise<InvoiceSnapshot[]> {
+  if (obligationIds.length === 0) return [];
+  const rows = await loadInvoiceRows(db, inArray(obligations.id, [...obligationIds]));
+  return rows.map((r) => toInvoiceSnapshot(r, now));
+}

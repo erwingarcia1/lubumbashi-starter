@@ -55,9 +55,15 @@ export function canReconcile(role: AdminRole): boolean {
   return role === "finances" || role === "administrateur";
 }
 
-/** Issues (prints) a note de perception from the back office: Finances, Administrateur, Superviseur (D35). */
+// DECISION-PENDING: D35 — who may issue a note; the Maire asked to issue directly from the dashboard.
+/**
+ * Issues (prints) a note de perception from the back office: Finances, Administrateur,
+ * Superviseur and Maire. The Auditeur stays read-only.
+ */
 export function canIssueInvoice(role: AdminRole): boolean {
-  return role === "finances" || role === "administrateur" || role === "superviseur";
+  return (
+    role === "finances" || role === "administrateur" || role === "superviseur" || role === "maire"
+  );
 }
 
 // DECISION-PENDING: D38 — who may see the trail.

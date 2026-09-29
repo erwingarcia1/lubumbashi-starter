@@ -701,6 +701,7 @@ export const fr = {
       collections: "Recettes",
       map: "Carte",
       taxpayers: "Contribuables",
+      invoices: "Notes de perception",
       agents: "Agents",
       reconciliation: "Rapprochement",
       taxes: "Taxes & barèmes",
@@ -752,6 +753,40 @@ export const fr = {
       batchTitle: "Notes de perception · {month}",
       batchEmpty: "Aucune note de perception à émettre pour {month}.",
       pageOf: "Page {n} / {total}",
+      /** Label of a combined PDF whose notes span several taxpayers (after « Notes de perception · »). */
+      selectionLabel: "Sélection",
+      /** The dashboard screen /admin/notes-de-perception: choose a taxpayer, print its notes. */
+      screen: {
+        title: "Notes de perception",
+        truncated:
+          "Seuls les {n} premiers résultats sont affichés : affinez la recherche ou ouvrez la",
+        fullList: "liste complète.",
+        intro:
+          "Choisissez un contribuable puis générez sa note de perception : une page par obligation due, dans un seul PDF. La première impression émet la note (date et émetteur enregistrés, journal d’audit) ; les suivantes la réimpriment sans la modifier.",
+        search: "Rechercher un contribuable",
+        searchPlaceholder: "Nom, téléphone ou identifiant",
+        results: "Contribuables trouvés",
+        choose: "Choisir",
+        chooseHint:
+          "Saisissez un nom, un téléphone ou un identifiant, puis choisissez le contribuable.",
+        chosen: "Contribuable choisi",
+        openRecord: "Ouvrir la fiche",
+        change: "Changer de contribuable",
+        obligations: "Obligations dues",
+        generate: "Générer la note de perception",
+        generateAll: "Générer la note de perception (toutes les obligations dues)",
+        opensInTab: "Le PDF s’ouvre dans un nouvel onglet.",
+        selectAtLeastOne: "Cochez au moins une obligation.",
+        selected: "{n} obligation(s) cochée(s)",
+        noTaxpayer: "Aucun contribuable trouvé",
+        noObligation: "Aucune obligation due",
+        noObligationHint:
+          "Ce contribuable n’a rien à payer : les notes déjà émises se réimpriment depuis sa fiche.",
+        printRun: "Impression groupée du mois",
+        printRunHint: "Toutes les notes dues d’un mois, une page chacune, depuis les Rapports.",
+        select: "Cocher",
+        outstanding: "Reste à payer",
+      },
     },
     commissions: {
       title: "Commissions des agents",

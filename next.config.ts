@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
     "/api/v1/admin/invoices/[invoiceNo]/pdf": [
       "./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/**",
     ],
+    "/api/v1/admin/invoices/pdf": ["./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/**"],
   },
 };
 

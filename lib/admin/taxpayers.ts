@@ -28,6 +28,7 @@ export interface TaxpayerListItem {
   taxpayerNo: string;
   fullName: string;
   categoryLabel: string | null;
+  commune: string;
   quartier: string | null;
   phone: string;
   balance: Balance;
@@ -62,6 +63,7 @@ export async function listTaxpayers(db: Db, filters: ListFilters = {}, asOf = ne
   const rows = await db
     .select({
       tp: taxpayers,
+      commune: zones.name,
       quartier: sql<
         string | null
       >`(select z.name from app.zones z where z.id = ${taxpayers.quartierId})`,
@@ -82,10 +84,11 @@ export async function listTaxpayers(db: Db, filters: ListFilters = {}, asOf = ne
         .where(inArray(entities.taxpayerId, ids))
         .orderBy(asc(entities.registeredAt))
     : [];
-  const items: TaxpayerListItem[] = rows.map(({ tp, quartier }) => ({
+  const items: TaxpayerListItem[] = rows.map(({ tp, commune, quartier }) => ({
     taxpayerNo: tp.taxpayerNo,
     fullName: tp.fullName,
     categoryLabel: entityRows.find((e) => e.taxpayerId === tp.id)?.categoryLabel ?? null,
+    commune,
     quartier,
     phone: tp.phone,
     balance: summarizeBalance(

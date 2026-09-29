@@ -1,11 +1,17 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, notExists, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { GET as invoicesGet } from "@/app/api/v1/admin/invoices/pdf/route";
 import { GET as reportsGet } from "@/app/api/v1/admin/reports/[code]/route";
 import { AdminError } from "@/lib/admin/errors";
-import { admins, auditLog, obligations, taxpayers } from "@/lib/db/schema";
+import { admins, auditLog, obligations, paymentAllocations, taxpayers } from "@/lib/db/schema";
 import { getAdminSession, type AdminSession } from "@/lib/identity/session";
-import { issueInvoice, issueInvoiceBatch, issueInvoicePdf } from "@/lib/invoices/issue";
+import {
+  issueInvoice,
+  issueInvoiceBatch,
+  issueInvoicePdf,
+  issueInvoicesPdf,
+} from "@/lib/invoices/issue";
 import { NOTE_TEMPLATE_VERSION, renderInvoiceBatchPdf, renderInvoicePdf } from "@/lib/invoices/pdf";
 import { loadInvoiceSnapshot } from "@/lib/invoices/snapshot";
 import { buildReport } from "@/lib/reports";
@@ -36,7 +42,9 @@ let finances: AdminSession;
 let administrateur: AdminSession;
 let auditeur: AdminSession;
 let maire: AdminSession;
+/** One obligation of LUB-KAM-00000125 and one of LUB-KAM-00000127: templates for fresh rows. */
 let template: typeof obligations.$inferSelect;
+let template127: typeof obligations.$inferSelect;
 
 const sessionFor = async (email: string, role: AdminSession["role"]): Promise<AdminSession> => {
   const [row] = await appDb().select().from(admins).where(eq(admins.email, email));
@@ -50,15 +58,15 @@ const sessionFor = async (email: string, role: AdminSession["role"]): Promise<Ad
   };
 };
 
-async function freshObligation(month: number, amountFc = 5000) {
+async function freshObligation(month: number, amountFc = 5000, tpl = template) {
   const mm = String(month).padStart(2, "0");
   const [o] = await appDb()
     .insert(obligations)
     .values({
-      entityId: template.entityId,
-      taxpayerId: template.taxpayerId,
-      taxRuleId: template.taxRuleId,
-      taxRuleVersionId: template.taxRuleVersionId,
+      entityId: tpl.entityId,
+      taxpayerId: tpl.taxpayerId,
+      taxRuleId: tpl.taxRuleId,
+      taxRuleVersionId: tpl.taxRuleVersionId,
       periodStart: `${YEAR}-${mm}-01`,
       periodEnd: `${YEAR}-${mm}-28`,
       dueDate: `${YEAR}-${mm}-28`,
@@ -68,6 +76,11 @@ async function freshObligation(month: number, amountFc = 5000) {
   created.push(o!.id);
   return o!;
 }
+
+// Runs once after every describe block: rows created by any test are removed, even by the last one.
+afterAll(async () => {
+  if (created.length) await appDb().delete(obligations).where(inArray(obligations.id, created));
+});
 
 async function stored(id: string) {
   const [row] = await appDb().select().from(obligations).where(eq(obligations.id, id));
@@ -131,13 +144,30 @@ describe("note de perception: issue, re-print, roles, print run (D35)", () => {
       .select({ id: taxpayers.id })
       .from(taxpayers)
       .where(eq(taxpayers.taxpayerNo, "LUB-KAM-00000125"));
+    // An interrupted run skips afterAll and leaves far-future clones on LUB-KAM-00000125, whose
+    // seeded 10 000 FC balance the registry tests rely on: clear such residue first.
+    await db.delete(obligations).where(
+      and(
+        eq(obligations.taxpayerId, tp!.id),
+        gte(obligations.periodStart, "2100-01-01"),
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(paymentAllocations)
+            .where(eq(paymentAllocations.obligationId, obligations.id)),
+        ),
+      ),
+    );
     template = (
       await db.select().from(obligations).where(eq(obligations.taxpayerId, tp!.id)).limit(1)
     )[0]!;
-  });
-
-  afterAll(async () => {
-    if (created.length) await appDb().delete(obligations).where(inArray(obligations.id, created));
+    const [tp127] = await db
+      .select({ id: taxpayers.id })
+      .from(taxpayers)
+      .where(eq(taxpayers.taxpayerNo, "LUB-KAM-00000127"));
+    template127 = (
+      await db.select().from(obligations).where(eq(obligations.taxpayerId, tp127!.id)).limit(1)
+    )[0]!;
   });
 
   it("the first issue stamps the obligation and journals WHO/WHERE/DEVICE; a re-print keeps the first date", async () => {
@@ -184,19 +214,31 @@ describe("note de perception: issue, re-print, roles, print run (D35)", () => {
     expect(s.invoiceIssuedByAdminId).toBe(finances.adminId);
   });
 
-  it("Maire and Auditeur are refused before anything is stamped; unknown and closed notes are refused", async () => {
+  it("the Auditeur is refused before anything is stamped, the Maire may issue (D35); unknown and closed notes are refused", async () => {
     const db = appDb();
     const o = await freshObligation(5);
-    for (const session of [auditeur, maire]) {
-      await expect(issueInvoice(db, session, { invoiceNo: o.invoiceNo! })).rejects.toMatchObject({
-        code: "forbidden",
-      });
-      await expect(issueInvoicePdf(db, session, { invoiceNo: o.invoiceNo! })).rejects.toMatchObject(
-        { code: "forbidden" },
-      );
-    }
+    await expect(issueInvoice(db, auditeur, { invoiceNo: o.invoiceNo! })).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    await expect(issueInvoicePdf(db, auditeur, { invoiceNo: o.invoiceNo! })).rejects.toMatchObject({
+      code: "forbidden",
+    });
     expect((await stored(o.id)).invoiceIssuedAt).toBeNull();
     expect(await auditRowsFor(o.invoiceNo!)).toHaveLength(0);
+
+    // The Maire asked to issue notes herself: the first issue is stamped and journaled in her name.
+    const byMaire = await issueInvoice(db, maire, { invoiceNo: o.invoiceNo! }, CTX);
+    expect(byMaire.firstIssue).toBe(true);
+    expect(byMaire.snapshot.issuedBy).toBe(maire.fullName);
+    expect((await stored(o.id)).invoiceIssuedByAdminId).toBe(maire.adminId);
+    expect((await auditRowsFor(o.invoiceNo!))[0]).toMatchObject({
+      actorType: "admin",
+      actorId: maire.adminId,
+      actorRole: "maire",
+      actorLabel: maire.email,
+      ip: "41.243.0.10",
+      userAgent: "vitest",
+    });
 
     await expect(issueInvoice(db, finances, { invoiceNo: "AV-9999-999999" })).rejects.toThrow(
       AdminError,
@@ -207,14 +249,15 @@ describe("note de perception: issue, re-print, roles, print run (D35)", () => {
     await expect(
       issueInvoicePdf(db, finances, { invoiceNo: "AV-9999-999999" }),
     ).rejects.toMatchObject({ code: "not_found" });
+    const closed = await freshObligation(10);
     await db
       .update(obligations)
       .set({ status: "cancelled", cancelledReason: "test" })
-      .where(eq(obligations.id, o.id));
-    await expect(issueInvoice(db, finances, { obligationId: o.id })).rejects.toMatchObject({
+      .where(eq(obligations.id, closed.id));
+    await expect(issueInvoice(db, finances, { obligationId: closed.id })).rejects.toMatchObject({
       code: "invalid_state",
     });
-    await expect(issueInvoicePdf(db, finances, { obligationId: o.id })).rejects.toMatchObject({
+    await expect(issueInvoicePdf(db, finances, { obligationId: closed.id })).rejects.toMatchObject({
       code: "invalid_state",
     });
     // Superviseur may issue too (ROLES placeholder for D35).
@@ -334,17 +377,15 @@ describe("note de perception: issue, re-print, roles, print run (D35)", () => {
     );
   });
 
-  it("the print run refuses Maire and Auditeur, refuses to run without a session, and stamps nothing when the render fails", async () => {
+  it("the print run refuses the Auditeur, refuses to run without a session, and stamps nothing when the render fails", async () => {
     const db = appDb();
     const sept = await unissuedSeptemberNote();
     const before = (await auditRowsFor(sept.invoiceNo!)).length;
 
     await expect(buildReport(db, "invoices", SEPT)).rejects.toThrow(/session/);
-    for (const session of [maire, auditeur]) {
-      await expect(
-        buildReport(db, "invoices", SEPT, new Date(), { session, ctx: CTX }),
-      ).rejects.toMatchObject({ code: "forbidden" });
-    }
+    await expect(
+      buildReport(db, "invoices", SEPT, new Date(), { session: auditeur, ctx: CTX }),
+    ).rejects.toMatchObject({ code: "forbidden" });
     // Render first, stamp after: nothing is recorded when the PDF cannot be produced.
     vi.mocked(renderInvoiceBatchPdf).mockRejectedValueOnce(new Error("render failed"));
     await expect(
@@ -374,7 +415,7 @@ describe("note de perception: issue, re-print, roles, print run (D35)", () => {
     expect(row.details).toMatchObject({ batch: "2026-09", obligationId: sept.id });
   });
 
-  it("GET /api/v1/admin/reports/invoices: Maire and Auditeur get 403 and stamp nothing; Finances' run is hers", async () => {
+  it("GET /api/v1/admin/reports/invoices: the Auditeur gets 403 and stamps nothing; Finances' run is hers", async () => {
     const sept = await unissuedSeptemberNote();
     const before = (await auditRowsFor(sept.invoiceNo!)).length;
     const exportsBefore = await exportsOfInvoices();
@@ -389,12 +430,10 @@ describe("note de perception: issue, re-print, roles, print run (D35)", () => {
         { params: Promise.resolve({ code: "invoices" }) },
       );
 
-    for (const session of [maire, auditeur]) {
-      vi.mocked(getAdminSession).mockResolvedValue(session);
-      const res = await call();
-      expect(res.status).toBe(403);
-      expect(await res.json()).toMatchObject({ ok: false, error: { code: "forbidden" } });
-    }
+    vi.mocked(getAdminSession).mockResolvedValue(auditeur);
+    const refused = await call();
+    expect(refused.status).toBe(403);
+    expect(await refused.json()).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect((await stored(sept.id)).invoiceIssuedAt).toBeNull();
     expect(await auditRowsFor(sept.invoiceNo!)).toHaveLength(before);
     expect(await exportsOfInvoices()).toBe(exportsBefore);
@@ -425,5 +464,174 @@ describe("note de perception: issue, re-print, roles, print run (D35)", () => {
 
     vi.mocked(getAdminSession).mockResolvedValue(null);
     expect((await call()).status).toBe(401);
+  });
+});
+
+const PAGES = /\/Type \/Page\b(?!s)/g;
+
+describe("notes de perception from the dashboard: a chosen set of obligations in one PDF", () => {
+  it("the Maire prints two notes of LUB-KAM-00000127 in one PDF: two pages, both stamped in her name with two audit rows; a re-print stamps nothing", async () => {
+    const db = appDb();
+    const a = await freshObligation(1, 5000, template127);
+    const b = await freshObligation(2, 7000, template127);
+    const now = new Date("2026-09-29T10:00:00+02:00");
+    vi.mocked(renderInvoiceBatchPdf).mockClear();
+
+    const run = await issueInvoicesPdf(db, maire, [b.id, a.id], CTX, now);
+    expect(run.firstIssues).toBe(2);
+    // Print-run order (period), whatever the order of the request.
+    expect(run.snapshots.map((s) => s.obligationId)).toEqual([a.id, b.id]);
+    expect(run.pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(run.pdf.toString("latin1").match(PAGES)).toHaveLength(2);
+    expect(vi.mocked(renderInvoiceBatchPdf)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(renderInvoiceBatchPdf).mock.calls[0]![1]).toBe("LUB-KAM-00000127");
+    for (const s of run.snapshots) {
+      expect(s).toMatchObject({
+        issuedAt: now.toISOString(),
+        issuedBy: maire.fullName,
+        issuedBySystem: false,
+        taxpayer: { taxpayerNo: "LUB-KAM-00000127" },
+      });
+    }
+    for (const o of [a, b]) {
+      const s = await stored(o.id);
+      expect(s.invoiceIssuedAt?.toISOString()).toBe(now.toISOString());
+      expect(s.invoiceIssuedByAdminId).toBe(maire.adminId);
+      const rows = await auditRowsFor(o.invoiceNo!);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        actorType: "admin",
+        actorId: maire.adminId,
+        actorRole: "maire",
+        actorLabel: maire.email,
+        ip: "41.243.0.10",
+        userAgent: "vitest",
+      });
+      expect(rows[0]!.details).toMatchObject({
+        obligationId: o.id,
+        taxpayerNo: "LUB-KAM-00000127",
+        amountFc: o.amountFc,
+        outstandingFc: o.amountFc,
+        templateVersion: NOTE_TEMPLATE_VERSION,
+      });
+      expect(rows[0]!.details).not.toHaveProperty("batch");
+    }
+
+    // A second print, by someone else, later: first date and issuer kept, nothing stamped or
+    // journaled again.
+    const again = await issueInvoicesPdf(
+      db,
+      finances,
+      [a.id, b.id],
+      CTX,
+      new Date("2026-09-30T10:00:00+02:00"),
+    );
+    expect(again.firstIssues).toBe(0);
+    expect(again.snapshots.map((s) => s.issuedAt)).toEqual([now.toISOString(), now.toISOString()]);
+    expect(again.snapshots.map((s) => s.issuedBy)).toEqual([maire.fullName, maire.fullName]);
+    expect(again.pdf.toString("latin1").match(PAGES)).toHaveLength(2);
+    for (const o of [a, b]) {
+      expect(await auditRowsFor(o.invoiceNo!)).toHaveLength(1);
+      expect((await stored(o.id)).invoiceIssuedByAdminId).toBe(maire.adminId);
+    }
+  });
+
+  it("a paid obligation is left out of the set and refused when alone; unknown ids, empty sets and the Auditeur are refused before anything is stamped", async () => {
+    const db = appDb();
+    const open = await freshObligation(3, 5000, template127);
+    const paid = await freshObligation(4, 5000, template127);
+    await db
+      .update(obligations)
+      .set({ status: "paid", paidFc: 5000 })
+      .where(eq(obligations.id, paid.id));
+
+    const run = await issueInvoicesPdf(db, maire, [open.id, paid.id], CTX);
+    expect(run.snapshots.map((s) => s.obligationId)).toEqual([open.id]);
+    expect(run.firstIssues).toBe(1);
+    expect(run.pdf.toString("latin1").match(PAGES)).toHaveLength(1);
+    expect((await stored(paid.id)).invoiceIssuedAt).toBeNull();
+    expect(await auditRowsFor(paid.invoiceNo!)).toHaveLength(0);
+    await expect(issueInvoicesPdf(db, maire, [paid.id], CTX)).rejects.toMatchObject({
+      code: "invalid_state",
+    });
+
+    const unknown = "00000000-0000-4000-8000-000000000000";
+    await expect(issueInvoicesPdf(db, maire, [open.id, unknown], CTX)).rejects.toMatchObject({
+      code: "not_found",
+      detail: unknown,
+    });
+    await expect(issueInvoicesPdf(db, maire, [], CTX)).rejects.toMatchObject({
+      code: "invalid_input",
+    });
+
+    const fresh = await freshObligation(5, 5000, template127);
+    await expect(issueInvoicesPdf(db, auditeur, [fresh.id], CTX)).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    expect((await stored(fresh.id)).invoiceIssuedAt).toBeNull();
+    expect(await auditRowsFor(fresh.invoiceNo!)).toHaveLength(0);
+  });
+
+  it("renders before stamping: a failed render leaves every note of the set unissued and unjournaled", async () => {
+    const db = appDb();
+    const o = await freshObligation(6, 5000, template127);
+    vi.mocked(renderInvoiceBatchPdf).mockRejectedValueOnce(new Error("render failed"));
+    await expect(issueInvoicesPdf(db, maire, [o.id], CTX)).rejects.toThrow("render failed");
+    expect((await stored(o.id)).invoiceIssuedAt).toBeNull();
+    expect((await stored(o.id)).invoiceIssuedByAdminId).toBeNull();
+    expect(await auditRowsFor(o.invoiceNo!)).toHaveLength(0);
+  });
+
+  it("GET /api/v1/admin/invoices/pdf: 401 without a session, 403 for the Auditeur, 422 on a bad query, 404 on an unknown id; the Maire's PDF is named after the taxpayer", async () => {
+    const a = await freshObligation(7, 5000, template127);
+    const b = await freshObligation(8, 5000, template127);
+    const call = (query: string) =>
+      invoicesGet(
+        new Request(`http://localhost:3000/api/v1/admin/invoices/pdf${query}`, {
+          headers: { "x-forwarded-for": "41.243.0.10, 10.0.0.1", "user-agent": "vitest" },
+        }),
+      );
+
+    vi.mocked(getAdminSession).mockResolvedValue(null);
+    expect((await call(`?obligations=${a.id}`)).status).toBe(401);
+    vi.mocked(getAdminSession).mockResolvedValue(auditeur);
+    const forbidden = await call(`?obligations=${a.id}`);
+    expect(forbidden.status).toBe(403);
+    expect(await forbidden.json()).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect((await stored(a.id)).invoiceIssuedAt).toBeNull();
+
+    vi.mocked(getAdminSession).mockResolvedValue(maire);
+    expect((await call("")).status).toBe(422);
+    expect((await call("?obligations=abc")).status).toBe(422);
+    const missing = await call(`?obligations=${a.id},00000000-0000-4000-8000-000000000000`);
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect((await stored(a.id)).invoiceIssuedAt).toBeNull();
+
+    const res = await call(`?obligations=${a.id},${b.id}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/pdf");
+    expect(res.headers.get("content-disposition")).toBe(
+      'inline; filename="notes-LUB-KAM-00000127.pdf"',
+    );
+    const body = Buffer.from(await res.arrayBuffer());
+    expect(body.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(body.toString("latin1").match(PAGES)).toHaveLength(2);
+    for (const o of [a, b]) {
+      expect((await stored(o.id)).invoiceIssuedByAdminId).toBe(maire.adminId);
+      expect((await auditRowsFor(o.invoiceNo!)).at(-1)).toMatchObject({
+        actorLabel: maire.email,
+        ip: "41.243.0.10",
+        userAgent: "vitest",
+      });
+    }
+
+    // Notes of two taxpayers in one request: the generic filename.
+    const other = await freshObligation(9);
+    const mixed = await call(`?obligations=${a.id},${other.id}`);
+    expect(mixed.status).toBe(200);
+    expect(mixed.headers.get("content-disposition")).toBe(
+      'inline; filename="notes-de-perception.pdf"',
+    );
   });
 });

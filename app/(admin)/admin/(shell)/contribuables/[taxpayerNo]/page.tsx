@@ -70,6 +70,12 @@ export default async function TaxpayerPage({
     .filter((o) => o.dueDate < today && (o.status === "due" || o.status === "partially_paid"))
     .map((o) => o.dueDate)
     .sort()[0];
+  // The combined note of everything owed: one PDF, a page per open obligation (same route as the
+  // « Notes de perception » screen; the first print issues the unissued notes).
+  // Open obligations, plus notes issued earlier (re-printable after payment, marked « réglée »).
+  const printable = (o: (typeof d.obligations)[number]) =>
+    o.status === "due" || o.status === "partially_paid" || o.invoiceIssuedAt !== null;
+  const openIds = d.obligations.filter(printable).map((o) => o.id);
 
   return (
     <>
@@ -151,9 +157,22 @@ export default async function TaxpayerPage({
             ))}
           </div>
           <div className="overflow-x-auto rounded-lg border border-[#E3DEDE] bg-white p-3.5">
-            <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
-              {D.obligations}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
+                {D.obligations}
+              </p>
+              {canIssue && openIds.length > 0 ? (
+                <a
+                  href={`/api/v1/admin/invoices/pdf?obligations=${openIds.join(",")}`}
+                  target="_blank"
+                  rel="noopener"
+                  title={t.admin.invoices.screen.generateAll}
+                  className="inline-flex h-11 items-center rounded-md bg-[#C1121F] px-3 text-[12.5px] font-semibold text-white md:ml-auto md:h-8"
+                >
+                  {t.admin.invoices.screen.generate}
+                </a>
+              ) : null}
+            </div>
             <table className="mt-1.5 w-full text-[12.5px] whitespace-nowrap md:whitespace-normal">
               <thead>
                 <tr className="text-left text-[10.5px] tracking-wider text-[#5C5456] uppercase">
@@ -191,9 +210,7 @@ export default async function TaxpayerPage({
                         <Pill tone={p.tone}>{p.label}</Pill>
                       </td>
                       <td className="px-2 py-1.5">
-                        {canIssue &&
-                        o.invoiceNo &&
-                        (o.status === "due" || o.status === "partially_paid") ? (
+                        {canIssue && o.invoiceNo && printable(o) ? (
                           <a
                             href={`/api/v1/admin/invoices/${o.invoiceNo}/pdf`}
                             target="_blank"

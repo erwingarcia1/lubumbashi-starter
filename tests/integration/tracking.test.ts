@@ -193,34 +193,27 @@ describe("field tracking and geofence (D37, D38)", () => {
       .from(obligations)
       .where(eq(obligations.taxpayerId, tp!.id))
       .limit(1);
-    const year = 2100 + Math.floor(Math.random() * 800);
-    // A previous run may have used the same random year: reuse its obligation then.
-    let [fresh] = await db
-      .insert(obligations)
-      .values({
-        entityId: template!.entityId,
-        taxpayerId: tp!.id,
-        taxRuleId: template!.taxRuleId,
-        taxRuleVersionId: template!.taxRuleVersionId,
-        periodStart: `${year}-03-01`,
-        periodEnd: `${year}-03-31`,
-        dueDate: `${year}-03-31`,
-        amountFc: 5_000,
-      })
-      .onConflictDoNothing()
-      .returning();
-    if (!fresh) {
+    // A fresh open obligation in a random far-future month; a year already used by an earlier
+    // run (whose obligation may be paid by now) is simply drawn again.
+    let fresh: typeof obligations.$inferSelect | undefined;
+    for (let attempt = 0; attempt < 8 && !fresh; attempt++) {
+      const year = 2100 + Math.floor(Math.random() * 800);
       [fresh] = await db
-        .select()
-        .from(obligations)
-        .where(
-          and(
-            eq(obligations.entityId, template!.entityId),
-            eq(obligations.taxRuleId, template!.taxRuleId),
-            eq(obligations.periodStart, `${year}-03-01`),
-          ),
-        );
+        .insert(obligations)
+        .values({
+          entityId: template!.entityId,
+          taxpayerId: tp!.id,
+          taxRuleId: template!.taxRuleId,
+          taxRuleVersionId: template!.taxRuleVersionId,
+          periodStart: `${year}-03-01`,
+          periodEnd: `${year}-03-31`,
+          dueDate: `${year}-03-31`,
+          amountFc: 5_000,
+        })
+        .onConflictDoNothing()
+        .returning();
     }
+    if (!fresh) throw new Error("no free far-future month after 8 draws");
     const view = await initiatePayment(
       db,
       { type: "agent", ...agent, gps: BEL_AIR },

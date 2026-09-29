@@ -5,6 +5,7 @@ import {
   approvalPolicySchema,
   canApproveRuleVersion,
   canEditTaxpayer,
+  canIssueInvoice,
   canProposeRuleVersion,
 } from "@/lib/identity/roles";
 
@@ -50,5 +51,12 @@ describe("approval policy (D29 placeholder)", () => {
     expect(canEditTaxpayer("administrateur")).toBe(true);
     expect(canEditTaxpayer("finances")).toBe(false);
     expect(canEditTaxpayer("maire")).toBe(false);
+  });
+  it("notes de perception are issued by Finances, Administrateur, Superviseur and Maire, never the Auditeur (D35)", () => {
+    expect(canIssueInvoice("finances")).toBe(true);
+    expect(canIssueInvoice("administrateur")).toBe(true);
+    expect(canIssueInvoice("superviseur")).toBe(true);
+    expect(canIssueInvoice("maire")).toBe(true);
+    expect(canIssueInvoice("auditeur")).toBe(false);
   });
 });

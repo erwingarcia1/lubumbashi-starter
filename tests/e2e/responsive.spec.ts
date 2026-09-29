@@ -11,6 +11,8 @@ const ROUTES = [
   "/admin/contribuables",
   "/admin/contribuables/LUB-KAM-00000125",
   "/admin/contribuables/nouveau",
+  "/admin/notes-de-perception",
+  "/admin/notes-de-perception?contribuable=LUB-KAM-00000127",
   "/admin/agents",
   "/admin/agents/AG-KAM-007",
   "/admin/rapprochement",
