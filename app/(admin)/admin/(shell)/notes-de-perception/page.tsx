@@ -9,10 +9,14 @@ import { canIssueInvoice } from "@/lib/identity/roles";
 import { requireAdmin } from "@/lib/identity/session";
 import { formatDateFr, formatFC, formatMonthFr } from "@/lib/i18n/format";
 import { t } from "@/lib/i18n";
-import { requestNow } from "@/lib/time";
+import { registrationMonthOf } from "@/lib/invoices/bareme";
+import { applicableRuleCodes, loadCreateOptions } from "@/lib/invoices/create";
+import { businessDate, requestNow } from "@/lib/time";
 
 import { Pill } from "../../_components/pill";
+import { createNoteAction } from "./actions";
 import { InvoiceSelectionForm } from "./invoice-selection-form";
+import { NewNoteForm } from "./new-note-form";
 
 const S = t.admin.invoices.screen;
 const C = t.admin.taxpayers.detail.columns;
@@ -22,16 +26,21 @@ const td = "px-2.5 py-2";
 
 /** Route of the combined PDF (one page per note); the first print issues the unissued notes. */
 const INVOICES_PDF_ROUTE = "/api/v1/admin/invoices/pdf";
+/** A note number as `?note=` may carry it after a creation; anything else is ignored. */
+const INVOICE_NO = /^AV-\d{4}-\d{6}$/;
+/** « Note {no} créée et émise. » with the number set in bold: the text around the placeholder. */
+const [createdBefore = "", createdAfter = ""] = S.create.created.split("{no}");
 
 /**
  * /admin/notes-de-perception: the Mairie user (Finances, Administrateur, Superviseur, Maire)
- * searches a taxpayer, chooses it and prints the notes of its open obligations without going
- * through the taxpayer record. The Auditeur is sent to « Accès refusé ».
+ * searches a taxpayer, chooses it, creates a new note with the details of her choice (card
+ * « Nouvelle note de perception », issued at once) or prints the notes of its open obligations,
+ * without going through the taxpayer record. The Auditeur is sent to « Accès refusé ».
  */
 export default async function InvoicesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; contribuable?: string }>;
+  searchParams: Promise<{ q?: string; contribuable?: string; note?: string }>;
 }) {
   const [sp, session] = await Promise.all([searchParams, requireAdmin()]);
   if (!canIssueInvoice(session.role)) redirect("/admin/interdit");
@@ -39,12 +48,25 @@ export default async function InvoicesPage({
   const now = requestNow();
   const q = sp.q?.trim() ?? "";
   const chosenNo = sp.contribuable?.trim() ?? "";
+  const createdNo = INVOICE_NO.test(sp.note?.trim() ?? "") ? sp.note!.trim() : null;
   const chosen = chosenNo ? await getTaxpayerDetail(db, chosenNo, now) : null;
   const results = !chosen && q ? await listTaxpayers(db, { q, pageSize: 25 }, now) : null;
   const open = chosen
     ? chosen.obligations.filter((o) => o.status === "due" || o.status === "partially_paid")
     : [];
   const openIds = open.map((o) => o.id);
+  const activeEntities = chosen
+    ? chosen.entities.filter((e) => e.entity.active && e.entity.status === "active")
+    : [];
+  const options = chosen ? await loadCreateOptions(db, now) : null;
+  // The rules each entity may be billed for (category ± overrides): the tax select offers no other.
+  const ruleCodes = options
+    ? await applicableRuleCodes(
+        db,
+        activeEntities.map((e) => e.entity),
+        options.rules,
+      )
+    : {};
   const searchHref = q
     ? `/admin/notes-de-perception?q=${encodeURIComponent(q)}`
     : "/admin/notes-de-perception";
@@ -189,6 +211,57 @@ export default async function InvoicesPage({
                 {S.change}
               </Link>
             </div>
+          </div>
+
+          {createdNo ? (
+            <div className="border-ok bg-ok-soft flex flex-wrap items-center gap-x-3 gap-y-1 rounded border-l-4 px-3 py-2 text-[12.5px]">
+              <span>
+                {createdBefore}
+                <b className="font-mono">{createdNo}</b>
+                {createdAfter}
+              </span>
+              <a
+                href={`/api/v1/admin/invoices/${createdNo}/pdf`}
+                target="_blank"
+                rel="noopener"
+                className="inline-flex min-h-11 items-center font-semibold text-[#C1121F] underline md:min-h-0"
+              >
+                {S.create.open} →
+              </a>
+            </div>
+          ) : null}
+
+          <div
+            id="nouvelle"
+            className="scroll-mt-4 rounded-lg border border-[#E3DEDE] bg-white p-3.5"
+          >
+            <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
+              {S.create.title}
+            </p>
+            <p className="mt-1 text-[12.5px] text-[#5C5456]">{S.create.hint}</p>
+            {activeEntities.length === 0 || !options ? (
+              <p className="mt-2 text-[12.5px]">
+                <b>{S.create.noEntity}</b>
+              </p>
+            ) : (
+              <NewNoteForm
+                action={createNoteAction}
+                taxpayerNo={chosen.taxpayer.taxpayerNo}
+                q={q}
+                entities={activeEntities.map((e) => ({
+                  id: e.entity.id,
+                  name: e.entity.name,
+                  categoryId: e.entity.categoryId,
+                  categoryLabel: e.categoryLabel,
+                  taxBaseFc: e.entity.taxBaseFc,
+                  registrationMonth: registrationMonthOf(e.entity.registeredAt),
+                  ruleCodes: ruleCodes[e.entity.id] ?? [],
+                }))}
+                rules={options.rules}
+                month={options.month}
+                today={businessDate(now)}
+              />
+            )}
           </div>
 
           <div className="rounded-lg border border-[#E3DEDE] bg-white p-3.5">

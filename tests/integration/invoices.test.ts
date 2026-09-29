@@ -144,11 +144,16 @@ describe("note de perception: issue, re-print, roles, print run (D35)", () => {
       .select({ id: taxpayers.id })
       .from(taxpayers)
       .where(eq(taxpayers.taxpayerNo, "LUB-KAM-00000125"));
-    // An interrupted run skips afterAll and leaves far-future clones on LUB-KAM-00000125, whose
-    // seeded 10 000 FC balance the registry tests rely on: clear such residue first.
+    // An interrupted run skips afterAll and leaves far-future clones on LUB-KAM-00000125 (whose
+    // seeded 10 000 FC balance the registry tests rely on) and on LUB-KAM-00000127 (random-year
+    // collisions): clear such residue first.
+    const [tp127Row] = await db
+      .select({ id: taxpayers.id })
+      .from(taxpayers)
+      .where(eq(taxpayers.taxpayerNo, "LUB-KAM-00000127"));
     await db.delete(obligations).where(
       and(
-        eq(obligations.taxpayerId, tp!.id),
+        inArray(obligations.taxpayerId, [tp!.id, tp127Row!.id]),
         gte(obligations.periodStart, "2100-01-01"),
         notExists(
           db

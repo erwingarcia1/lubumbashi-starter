@@ -8,7 +8,8 @@ export type AdminErrorCode =
   | "open_exceptions"
   | "already_closed"
   | "provider_error"
-  | "duplicate_phone";
+  | "duplicate_phone"
+  | "duplicate_period";
 
 /**
  * Raised by the admin core functions; pages map the code to a French message (fr.admin.errors).

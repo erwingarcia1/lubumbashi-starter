@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lte, type SQL } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import type { Db, Tx } from "@/lib/db/client";
@@ -32,6 +32,12 @@ export interface InvoiceSnapshot {
   commune: string;
   quartier: string | null;
   tax: { code: string; label: string };
+  /**
+   * « Objet » of an ad-hoc note created from the back office (free text), null for the notes the
+   * platform computed. The obligations table has no column for it: it is read back from the
+   * `obligation.created` audit row of the note, which is immutable, so every re-print shows it.
+   */
+  label: string | null;
   periodStart: string;
   periodEnd: string;
   dueDate: string;
@@ -81,6 +87,8 @@ export interface InvoiceRow {
   commune: string;
   quartier: string | null;
   issuerName: string | null;
+  /** « Objet » given at the creation of an ad-hoc note; absent or null otherwise. */
+  label?: string | null;
 }
 
 function assertFc(value: number, name: string): void {
@@ -138,6 +146,7 @@ export function toInvoiceSnapshot(
     commune: row.commune,
     quartier: row.quartier,
     tax: { code: row.rule.code, label: row.rule.labelFr },
+    label: row.label ?? null,
     periodStart: o.periodStart,
     periodEnd: o.periodEnd,
     dueDate: o.dueDate,
@@ -204,6 +213,10 @@ export async function loadInvoiceRows(db: Db | Tx, where: SQL): Promise<InvoiceR
       commune: commune.name,
       quartier: quartier.name,
       issuerName: admins.fullName,
+      // The « Objet » of an ad-hoc note lives in its (append-only) creation audit row.
+      label: sql<
+        string | null
+      >`(select al.details->>'label' from app.audit_log al where al.object_type = 'obligation' and al.object_id = ${obligations.invoiceNo} and al.action = 'obligation.created' order by al.id limit 1)`,
     })
     .from(obligations)
     .innerJoin(taxpayers, eq(taxpayers.id, obligations.taxpayerId))

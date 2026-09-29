@@ -171,17 +171,31 @@ export async function issueInvoice(
   now = new Date(),
 ): Promise<IssuedInvoice> {
   if (!canIssueInvoice(session.role)) throw new AdminError("forbidden");
-  return db.transaction(async (tx) => {
-    const snapshot = await loadInvoiceSnapshot(tx, ref, now);
-    if (!snapshot) throw new AdminError("not_found", JSON.stringify(ref));
-    if (snapshot.issuedAt) return { snapshot, firstIssue: false };
-    if (!isIssuable(snapshot)) throw new AdminError("invalid_state", snapshot.status);
-    if (!(await stampFirstIssue(tx, snapshot, session, ctx, now))) {
-      const reloaded = await loadInvoiceSnapshot(tx, ref, now);
-      return { snapshot: reloaded ?? snapshot, firstIssue: false };
-    }
-    return { snapshot: withFirstIssue(snapshot, session.fullName, now), firstIssue: true };
-  });
+  return db.transaction((tx) => issueInvoiceInTx(tx, session, ref, ctx, now));
+}
+
+/**
+ * `issueInvoice` inside the caller's transaction: the path an ad-hoc note takes so that it is
+ * born issued in the same transaction that creates its obligation (`lib/invoices/create.ts`),
+ * with the `obligation.created` and `invoice.issued` rows committing together.
+ */
+export async function issueInvoiceInTx(
+  tx: Tx,
+  session: AdminSession,
+  ref: InvoiceRef,
+  ctx: RequestContext = {},
+  now = new Date(),
+): Promise<IssuedInvoice> {
+  if (!canIssueInvoice(session.role)) throw new AdminError("forbidden");
+  const snapshot = await loadInvoiceSnapshot(tx, ref, now);
+  if (!snapshot) throw new AdminError("not_found", JSON.stringify(ref));
+  if (snapshot.issuedAt) return { snapshot, firstIssue: false };
+  if (!isIssuable(snapshot)) throw new AdminError("invalid_state", snapshot.status);
+  if (!(await stampFirstIssue(tx, snapshot, session, ctx, now))) {
+    const reloaded = await loadInvoiceSnapshot(tx, ref, now);
+    return { snapshot: reloaded ?? snapshot, firstIssue: false };
+  }
+  return { snapshot: withFirstIssue(snapshot, session.fullName, now), firstIssue: true };
 }
 
 /**

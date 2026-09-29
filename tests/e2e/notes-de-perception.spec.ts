@@ -61,7 +61,9 @@ test("the Maire generates the note de perception of a chosen taxpayer from the d
 
   await login(page, "maire@lubumbashi.cd");
   await page.locator('nav a[href="/admin/notes-de-perception"]').click();
-  await expect(page).toHaveURL(/\/admin\/notes-de-perception$/);
+  // Navigations wait on the dev server, which another flow (the September print run of
+  // invoices.spec.ts, hundreds of PDF pages) can block for seconds: give them the remote budget.
+  await expect(page).toHaveURL(/\/admin\/notes-de-perception$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Notes de perception" })).toBeVisible();
   await expect(page.getByText("Impression groupée du mois")).toBeVisible();
 
@@ -89,6 +91,11 @@ test("the Maire generates the note de perception of a chosen taxpayer from the d
   const ids = await form.locator('input[name="obligations"]').inputValue();
   expect(ids.split(",").length).toBeGreaterThan(0);
   const href = `${ROUTE}?obligations=${ids}`;
+  // On a shared server another flow (the September print run of invoices.spec.ts) may issue this
+  // note first: the journal then names that user, and only the first issue is the Maire's.
+  const issuedBefore = /émise le \d{2}\/\d{2}\/\d{4}/.test(
+    (await page.locator("tr", { hasText: invoiceNo }).textContent()) ?? "",
+  );
 
   // Unchecking everything greys the button; re-checking restores the ids.
   const first = boxes.first();
@@ -124,7 +131,9 @@ test("the Maire generates the note de perception of a chosen taxpayer from the d
   await page.reload();
   await expect(page.getByText(/émise le \d{2}\/\d{2}\/\d{4}/).first()).toBeVisible();
   await page.getByRole("link", { name: "Ouvrir la fiche" }).click();
-  await expect(page).toHaveURL(new RegExp(`/admin/contribuables/${TAXPAYER}$`));
+  await expect(page).toHaveURL(new RegExp(`/admin/contribuables/${TAXPAYER}$`), {
+    timeout: 30_000,
+  });
   await expect(page.getByRole("heading", { name })).toBeVisible();
   const issuedRow = page.locator("tr", {
     has: page.locator(`a[href="/api/v1/admin/invoices/${invoiceNo}/pdf"]`),
@@ -135,7 +144,7 @@ test("the Maire generates the note de perception of a chosen taxpayer from the d
   await expect(all).toHaveAttribute("target", "_blank");
   await page.goto(`/admin/audit?action=invoice.issued&object=${invoiceNo}`);
   await expect(page.getByText(invoiceNo).first()).toBeVisible();
-  await expect(page.getByText("maire@lubumbashi.cd").first()).toBeVisible();
+  if (!issuedBefore) await expect(page.getByText("maire@lubumbashi.cd").first()).toBeVisible();
   await signOut(page);
 
   // The Auditeur has no menu entry, the page refuses him, and so does the API.

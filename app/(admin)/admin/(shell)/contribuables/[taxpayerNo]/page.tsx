@@ -161,16 +161,28 @@ export default async function TaxpayerPage({
               <p className="text-[13px] font-bold tracking-wide text-[#5C5456] uppercase">
                 {D.obligations}
               </p>
-              {canIssue && openIds.length > 0 ? (
-                <a
-                  href={`/api/v1/admin/invoices/pdf?obligations=${openIds.join(",")}`}
-                  target="_blank"
-                  rel="noopener"
-                  title={t.admin.invoices.screen.generateAll}
-                  className="inline-flex h-11 items-center rounded-md bg-[#C1121F] px-3 text-[12.5px] font-semibold text-white md:ml-auto md:h-8"
-                >
-                  {t.admin.invoices.screen.generate}
-                </a>
+              {canIssue ? (
+                <div className="flex flex-wrap items-center gap-3 md:ml-auto">
+                  {openIds.length > 0 ? (
+                    <a
+                      href={`/api/v1/admin/invoices/pdf?obligations=${openIds.join(",")}`}
+                      target="_blank"
+                      rel="noopener"
+                      title={t.admin.invoices.screen.generateAll}
+                      className="inline-flex h-11 items-center rounded-md bg-[#C1121F] px-3 text-[12.5px] font-semibold text-white md:h-8"
+                    >
+                      {t.admin.invoices.screen.generate}
+                    </a>
+                  ) : null}
+                  <Link
+                    href={
+                      `/admin/notes-de-perception?contribuable=${d.taxpayer.taxpayerNo}#nouvelle` as never
+                    }
+                    className="inline-flex min-h-11 items-center text-[12.5px] text-[#C1121F] underline md:min-h-0"
+                  >
+                    {t.admin.invoices.screen.create.title}
+                  </Link>
+                </div>
               ) : null}
             </div>
             <table className="mt-1.5 w-full text-[12.5px] whitespace-nowrap md:whitespace-normal">

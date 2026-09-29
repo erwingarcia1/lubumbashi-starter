@@ -519,6 +519,7 @@ export const fr = {
       "receipt.cancelled": "Reçu annulé",
       "payment.refused": "Encaissement refusé (hors zone)",
       "invoice.issued": "Note de perception émise",
+      "obligation.created": "Note de perception créée",
       "commission_statement.approved": "Relevé de commissions approuvé",
       "commission_statement.paid": "Relevé de commissions payé",
       "commission_rule.created": "Barème de commissions modifié",
@@ -730,6 +731,8 @@ export const fr = {
       entity: "Bien ou activité",
       category: "Catégorie",
       tax: "Taxe",
+      /** Free text given at the creation of an ad-hoc note (« Nouvelle note de perception »). */
+      objet: "Objet",
       period: "Période",
       periodFromTo: "du {from} au {to}",
       due: "Échéance",
@@ -772,7 +775,7 @@ export const fr = {
         chosen: "Contribuable choisi",
         openRecord: "Ouvrir la fiche",
         change: "Changer de contribuable",
-        obligations: "Obligations dues",
+        obligations: "Notes existantes",
         generate: "Générer la note de perception",
         generateAll: "Générer la note de perception (toutes les obligations dues)",
         opensInTab: "Le PDF s’ouvre dans un nouvel onglet.",
@@ -786,6 +789,59 @@ export const fr = {
         printRunHint: "Toutes les notes dues d’un mois, une page chacune, depuis les Rapports.",
         select: "Cocher",
         outstanding: "Reste à payer",
+        /** The card « Nouvelle note de perception »: an ad-hoc obligation, issued at once. */
+        create: {
+          title: "Nouvelle note de perception",
+          hint: "Créez une note pour ce contribuable avec les détails de votre choix : bien, taxe, période, échéance et montant. La note est émise et prête à imprimer aussitôt. Le montant est proposé d’après le barème en vigueur ; le modifier exige un motif, inscrit au journal d’audit.",
+          entity: "Bien ou activité",
+          tax: "Taxe",
+          period: "Période (mois)",
+          periodDerived: "Période couverte : du {from} au {to}",
+          periodBeforeRegistration:
+            "Bien enregistré en {month} : la période ne peut pas lui être antérieure.",
+          dueDate: "Échéance",
+          dueDateHint:
+            "Par défaut, l’échéance prévue par le barème (le dernier jour de la période, sauf mention contraire).",
+          amount: "Montant (FC)",
+          amountBareme: "Barème : {amount}",
+          amountNoBareme: "Aucun barème approuvé pour cette taxe à la période choisie.",
+          amountNoBase:
+            "Cette taxe se calcule en pourcentage d’une base imposable que ce bien n’a pas : renseignez d’abord la base sur la fiche.",
+          amountEdited: "Montant différent du barème : un motif est obligatoire.",
+          penaltyAtIssue:
+            "Échéance dépassée de {late} : pénalité de {penalty} appliquée, soit {total} au total.",
+          penaltyAtIssueNone: "Échéance dépassée de {late} : aucune pénalité à ce jour.",
+          lateDay: "1 jour",
+          lateDays: "{n} jours",
+          noRule: "Aucune taxe ne s’applique à ce bien ou cette activité.",
+          reason: "Motif de l’écart",
+          reasonHint:
+            "Obligatoire dès que le montant s’écarte du barème ; conservé au journal d’audit.",
+          label: "Objet (facultatif)",
+          labelHint: "Texte libre imprimé sur la note, 120 caractères au plus.",
+          submit: "Créer et générer la note",
+          submitting: "Création…",
+          created: "Note {no} créée et émise.",
+          open: "Ouvrir la note (PDF)",
+          noEntity:
+            "Ce contribuable n’a aucun bien ou activité actif : impossible de créer une note.",
+          errors: {
+            duplicate_period: "Une note existe déjà pour ce bien, cette taxe et cette période :",
+            base_required:
+              "Cette taxe se calcule en pourcentage d’une base imposable que ce bien n’a pas : renseignez d’abord la base sur la fiche.",
+            no_version: "Aucun barème approuvé pour cette taxe à la période choisie.",
+            reason_required: "Le montant saisi diffère du barème : indiquez un motif.",
+            due_date: "L’échéance doit être postérieure ou égale au début de la période.",
+            period_before_registration:
+              "La période choisie précède le mois d’enregistrement du bien : aucune note ne peut porter sur une période antérieure à l’enregistrement.",
+            rule_not_applicable:
+              "Cette taxe ne s’applique pas à ce bien ou cette activité : catégorie différente, dérogation inscrite sur la fiche ou exonération en vigueur à la période choisie.",
+            entity_closed:
+              "Ce bien ou cette activité est fermé : aucune note ne peut lui être adressée.",
+            inactive_rule: "Cette taxe n’est plus en vigueur.",
+            forbidden: "Votre rôle ne permet pas de créer une note de perception.",
+          },
+        },
       },
     },
     commissions: {
@@ -951,6 +1007,7 @@ export const fr = {
       already_closed: "Cette journée est déjà clôturée.",
       provider_error: "Le fournisseur a refusé l’opération.",
       duplicate_phone: "Ce numéro de téléphone est déjà enregistré pour un autre contribuable.",
+      duplicate_period: "Une note existe déjà pour ce bien, cette taxe et cette période.",
     },
     overview: {
       title: "Vue d’ensemble",

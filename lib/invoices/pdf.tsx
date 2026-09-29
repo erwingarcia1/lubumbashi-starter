@@ -181,6 +181,7 @@ function NotePage({ s, qr }: { s: InvoiceSnapshot; qr: string }) {
             [I.address, s.entity.address],
             [I.category, s.entity.categoryLabel],
             [I.tax, s.tax.label],
+            ...(s.label ? [[I.objet, s.label] as [string, string]] : []),
             [I.period, periodLabel(s)],
             [I.due, formatDateFr(s.dueDate), true],
           ]}
